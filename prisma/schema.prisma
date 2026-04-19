@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String
+  password      String
+  credits       Float         @default(20)
+  createdAt     DateTime      @default(now())
+  stores        Store[]
+  orders        Order[]
+  transactions  Transaction[]
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  storeId     String
+  storeName   String
+  accessToken String
+  domain      String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+  orders      Order[]
+
+  @@unique([platform, storeId])
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  storeId      String
+  userId       String
+  externalId   String
+  buyerName    String
+  buyerEmail   String
+  address      Json
+  products     Json
+  courier      String?
+  trackingCode String?
+  status       String
+  exported     Boolean  @default(false)
+  notified     Boolean  @default(false)
+  totalAmount  Float
+  createdAt    DateTime @default(now())
+  store        Store    @relation(fields: [storeId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@unique([storeId, externalId])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  amount      Float
+  description String
+  reference   String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
