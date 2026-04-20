@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -33,19 +34,21 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.create({
       data: {
+        id: randomUUID(),
         name,
         email,
         password: hashedPassword,
-        credits: 20,
+        credits: 100,
       },
     });
 
     // Register the welcome credits transaction
     await prisma.transaction.create({
       data: {
+        id: randomUUID(),
         userId: user.id,
         type: "credit",
-        amount: 20,
+        amount: 100,
         description: "Créditos de bienvenida",
       },
     });
