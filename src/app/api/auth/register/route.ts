@@ -51,9 +51,10 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ message: "Cuenta creada exitosamente" });
-  } catch {
+  } catch (error: any) {
+    console.error("[REGISTER_ERROR]", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error interno del servidor: " + error.message },
       { status: 500 }
     );
   }
