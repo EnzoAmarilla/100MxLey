@@ -11,26 +11,22 @@ interface MetricCardProps {
 
 export function MetricCard({ label, value, change, locked }: MetricCardProps) {
   return (
-    <div className="relative rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 overflow-hidden">
+    <div className="relative rounded-xl border border-brand-border bg-brand-card p-5 overflow-hidden transition-all duration-300 hover:border-neon-cyan/30 hover:shadow-[0_0_24px_rgba(0,245,255,0.06)] group">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-cyan/40 to-transparent" />
+
       {locked && (
-        <div className="absolute inset-0 bg-[var(--bg-card)]/80 backdrop-blur-sm flex flex-col items-center justify-center z-10">
-          <Lock className="h-6 w-6 text-[var(--text-secondary)] mb-2" />
-          <span className="text-xs text-[var(--text-secondary)]">En construcción</span>
+        <div className="absolute inset-0 bg-brand-card/85 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl">
+          <Lock className="h-5 w-5 text-neon-cyan/40 mb-2" />
+          <span className="text-xs text-[var(--text-secondary)] tracking-widest uppercase">En construcción</span>
         </div>
       )}
-      <p className="text-sm text-[var(--text-secondary)] mb-1">{label}</p>
-      <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
+
+      <p className="text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)] mb-2">{label}</p>
+      <p className="text-2xl font-bold text-[var(--text-primary)] font-mono">{value}</p>
+
       {change !== undefined && (
-        <div
-          className={`flex items-center gap-1 mt-2 text-xs font-medium ${
-            change >= 0 ? "text-brand-green" : "text-brand-red"
-          }`}
-        >
-          {change >= 0 ? (
-            <TrendingUp className="h-3 w-3" />
-          ) : (
-            <TrendingDown className="h-3 w-3" />
-          )}
+        <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${change >= 0 ? "text-neon-green" : "text-neon-red"}`}>
+          {change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           <span>{change >= 0 ? "+" : ""}{change}%</span>
         </div>
       )}

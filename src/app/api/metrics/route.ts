@@ -60,9 +60,21 @@ export async function GET(req: Request) {
 
   // Products ranking
   const productCounts: Record<string, number> = {};
+  const parseProducts = (products: any) => {
+    if (typeof products === "string") {
+      try {
+        const parsed = JSON.parse(products);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(products) ? products : [];
+  };
+
   orders.forEach((o) => {
-    const products = o.products as any[];
-    products.forEach((p) => {
+    const products = parseProducts(o.products);
+    products.forEach((p: any) => {
       const key = p.sku || p.name;
       productCounts[key] = (productCounts[key] || 0) + (p.quantity || 1);
     });

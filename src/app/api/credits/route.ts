@@ -10,16 +10,22 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { credits: true },
-  });
-
-  const transactions = await prisma.transaction.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  // Both queries in parallel
+  const [user, transactions] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { credits: true },
+    }),
+    prisma.transaction.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true, type: true, amount: true,
+        description: true, reference: true, createdAt: true,
+      },
+    }),
+  ]);
 
   return NextResponse.json({
     credits: user?.credits ?? 0,

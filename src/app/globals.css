@@ -2,39 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════
+   NEON FUTURISTIC — CSS Variables
+   ═══════════════════════════════════════════ */
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --bg-card: #ffffff;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
+  --bg-primary:   #050A0E;
+  --bg-secondary: #0A1628;
+  --bg-card:      #0D1F33;
+  --bg-surface:   #0A1628;
+  --text-primary:   #E2F4FF;
+  --text-secondary: #4A7A9B;
+  --border-color:   #1A3A4A;
+  --neon-cyan:   #00F5FF;
+  --neon-purple: #BD00FF;
+  --neon-green:  #00FF88;
+  --neon-yellow: #FFB700;
+  --neon-red:    #FF2D78;
 }
 
+/* Keep same palette for .dark — the whole app is dark-first */
 .dark {
-  --bg-primary: #0f1117;
-  --bg-secondary: #151821;
-  --bg-card: #1a1d27;
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --border-color: #2d3141;
+  --bg-primary:   #050A0E;
+  --bg-secondary: #0A1628;
+  --bg-card:      #0D1F33;
+  --text-primary:   #E2F4FF;
+  --text-secondary: #4A7A9B;
+  --border-color:   #1A3A4A;
 }
+
+/* ═══════════════════════════════════════════
+   Base
+   ═══════════════════════════════════════════ */
+html { color-scheme: dark; }
 
 body {
   background-color: var(--bg-primary);
+  background-image:
+    linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
   color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
+/* ═══════════════════════════════════════════
+   Scrollbar
+   ═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 3px;
+  background: rgba(0,245,255,0.3);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0,245,255,0.6); }
+
+/* ═══════════════════════════════════════════
+   Utility helpers
+   ═══════════════════════════════════════════ */
+@layer utilities {
+  .neon-text-cyan   { color: #00F5FF; text-shadow: 0 0 10px rgba(0,245,255,0.8); }
+  .neon-text-green  { color: #00FF88; text-shadow: 0 0 10px rgba(0,255,136,0.8); }
+  .neon-text-purple { color: #BD00FF; text-shadow: 0 0 10px rgba(189,0,255,0.8); }
+  .neon-text-red    { color: #FF2D78; text-shadow: 0 0 10px rgba(255,45,120,0.8); }
+  .neon-text-yellow { color: #FFB700; text-shadow: 0 0 10px rgba(255,183,0,0.8); }
+
+  .neon-border {
+    border-color: rgba(0,245,255,0.25);
+    box-shadow: 0 0 0 1px rgba(0,245,255,0.08), inset 0 0 20px rgba(0,245,255,0.02);
+  }
+  .neon-border:hover {
+    border-color: rgba(0,245,255,0.45);
+    box-shadow: 0 0 0 1px rgba(0,245,255,0.15), 0 0 20px rgba(0,245,255,0.08);
+  }
+
+  .glass {
+    background: rgba(13, 31, 51, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .gradient-bg {
+    background:
+      radial-gradient(ellipse at top left, rgba(0,245,255,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(189,0,255,0.04) 0%, transparent 50%),
+      var(--bg-primary);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Neon card glow line at top
+   ═══════════════════════════════════════════ */
+.card-neon::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,245,255,0.5), transparent);
+  pointer-events: none;
+}
+
+/* Selection */
+::selection {
+  background: rgba(0,245,255,0.2);
+  color: #00F5FF;
 }

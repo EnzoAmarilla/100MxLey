@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { NavProgressProvider } from "@/components/layout/nav-progress";
 
 type Theme = "dark" | "light";
 
@@ -44,7 +45,9 @@ function ThemeProvider({ children }: { children: ReactNode }) {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <ThemeProvider>{children}</ThemeProvider>
+      <NavProgressProvider>
+        <ThemeProvider>{children}</ThemeProvider>
+      </NavProgressProvider>
     </SessionProvider>
   );
 }

@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
@@ -8,42 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String
-  password      String
-  credits       Float         @default(20)
-  createdAt     DateTime      @default(now())
-  stores        Store[]
-  orders        Order[]
-  transactions  Transaction[]
-}
-
-model Store {
-  id          String   @id @default(cuid())
-  userId      String
-  platform    String
-  storeId     String
-  storeName   String
-  accessToken String
-  domain      String?
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id])
-  orders      Order[]
-
-  @@unique([platform, storeId])
-}
-
-model Order {
-  id           String   @id @default(cuid())
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order {
+  id           String   @id
   storeId      String
   userId       String
   externalId   String
   buyerName    String
   buyerEmail   String
-  address      Json
-  products     Json
+  address      String   @db.LongText
+  products     String   @db.LongText
   courier      String?
   trackingCode String?
   status       String
@@ -51,19 +24,50 @@ model Order {
   notified     Boolean  @default(false)
   totalAmount  Float
   createdAt    DateTime @default(now())
-  store        Store    @relation(fields: [storeId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
+  store        store    @relation(fields: [storeId], references: [id], onDelete: NoAction, map: "Order_storeId_fkey")
+  user         user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Order_userId_fkey")
 
-  @@unique([storeId, externalId])
+  @@unique([storeId, externalId], map: "Order_storeId_externalId_key")
+  @@index([userId], map: "Order_userId_fkey")
 }
 
-model Transaction {
-  id          String   @id @default(cuid())
+model store {
+  id          String   @id
+  userId      String
+  platform    String
+  storeId     String
+  storeName   String
+  accessToken String
+  domain      String?
+  createdAt   DateTime @default(now())
+  order       order[]
+  user        user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Store_userId_fkey")
+
+  @@unique([platform, storeId], map: "Store_platform_storeId_key")
+  @@index([userId], map: "Store_userId_fkey")
+}
+
+model transaction {
+  id          String   @id
   userId      String
   type        String
   amount      Float
   description String
   reference   String?
   createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id])
+  user        user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Transaction_userId_fkey")
+
+  @@index([userId], map: "Transaction_userId_fkey")
+}
+
+model user {
+  id          String        @id
+  email       String        @unique(map: "User_email_key")
+  name        String
+  password    String
+  credits     Float         @default(20)
+  createdAt   DateTime      @default(now())
+  order       order[]
+  store       store[]
+  transaction transaction[]
 }
