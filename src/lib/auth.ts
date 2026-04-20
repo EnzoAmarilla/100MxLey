@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error("[AUTH] Error in authorize:", error);
-          throw error;
+          return null;
         }
       },
     }),
