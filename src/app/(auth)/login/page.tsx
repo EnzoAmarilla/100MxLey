@@ -23,25 +23,25 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
-        callbackUrl: "/dashboard",
       });
 
       if (!result) {
         setError("Error de conexión. Intentá de nuevo.");
-        setLoading(false);
         return;
       }
 
       if (result.error || !result.ok) {
         setError("Email o contraseña incorrectos");
-        setLoading(false);
         return;
       }
 
-      window.location.href = result.url ?? "/dashboard";
+      // Reload completo en el MISMO host (no usar result.url, que puede apuntar
+      // a un dominio distinto si NEXTAUTH_URL no coincide con la URL actual).
+      window.location.assign("/dashboard");
     } catch (err) {
       console.error("[LOGIN] signIn threw:", err);
       setError("Error de conexión. Intentá de nuevo.");
+    } finally {
       setLoading(false);
     }
   }

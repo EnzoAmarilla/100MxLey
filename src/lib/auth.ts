@@ -48,14 +48,30 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
+        session.user.email = token.email ?? session.user.email;
+        session.user.name = token.name ?? session.user.name;
       }
       return session;
+    },
+    // Evita que NextAuth devuelva una URL absoluta de otro dominio cuando
+    // NEXTAUTH_URL no coincide con el host actual (preview URLs de Vercel).
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const target = new URL(url);
+        if (target.origin === baseUrl) return url;
+      } catch {
+        // url no válida, cae al default
+      }
+      return baseUrl;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
