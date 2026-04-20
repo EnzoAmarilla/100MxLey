@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { LogIn, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,14 +18,31 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl: "/dashboard",
+      });
 
-    if (result?.error || !result?.ok) {
-      setError("Email o contraseña incorrectos");
+      if (!result) {
+        setError("Error de conexión. Intentá de nuevo.");
+        setLoading(false);
+        return;
+      }
+
+      if (result.error || !result.ok) {
+        setError("Email o contraseña incorrectos");
+        setLoading(false);
+        return;
+      }
+
+      window.location.href = result.url ?? "/dashboard";
+    } catch (err) {
+      console.error("[LOGIN] signIn threw:", err);
+      setError("Error de conexión. Intentá de nuevo.");
       setLoading(false);
-    } else {
-      router.push("/dashboard");
-      router.refresh();
     }
   }
 
