@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { randomUUID } from "crypto";
 
 export async function deductCredits(
   userId: string,
@@ -17,6 +18,7 @@ export async function deductCredits(
     }),
     prisma.transaction.create({
       data: {
+        id: randomUUID(),
         userId,
         type: "debit",
         amount,
@@ -41,6 +43,7 @@ export async function addCredits(
     }),
     prisma.transaction.create({
       data: {
+        id: randomUUID(),
         userId,
         type: "credit",
         amount,

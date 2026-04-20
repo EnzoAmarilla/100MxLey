@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -61,6 +62,7 @@ export async function GET(req: Request) {
         domain: storeData.original_domain,
       },
       create: {
+        id: randomUUID(),
         userId: session.user.id,
         platform: "tiendanube",
         storeId: String(tokenData.user_id),

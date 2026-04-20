@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 
 export async function GET() {
   try {
@@ -12,6 +13,7 @@ export async function GET() {
       where: { email: adminEmail },
       update: { password: hashedPassword },
       create: {
+        id: randomUUID(),
         email: adminEmail,
         name: "Admin 100MxLey",
         password: hashedPassword,
@@ -24,6 +26,7 @@ export async function GET() {
       where: { platform_storeId: { platform: "tiendanube", storeId: "123456" } },
       update: {},
       create: {
+        id: randomUUID(),
         userId: user.id,
         platform: "tiendanube",
         storeId: "123456",
@@ -38,16 +41,17 @@ export async function GET() {
       where: { storeId_externalId: { storeId: store.id, externalId: "ORD-001" } },
       update: {},
       create: {
+        id: randomUUID(),
         storeId: store.id,
         userId: user.id,
         externalId: "ORD-001",
         buyerName: "Juan Perez",
         buyerEmail: "juan.perez@email.com",
-        address: { city: "CDMX", street: "Av. Reforma 123", zip: "06000" },
-        products: [
+        address: JSON.stringify({ city: "CDMX", street: "Av. Reforma 123", zip: "06000" }),
+        products: JSON.stringify([
           { name: "Producto A", quantity: 2, price: 150 },
           { name: "Producto B", quantity: 1, price: 200 },
-        ],
+        ]),
         totalAmount: 500,
         status: "pending",
         exported: false,
@@ -59,15 +63,16 @@ export async function GET() {
       where: { storeId_externalId: { storeId: store.id, externalId: "ORD-002" } },
       update: {},
       create: {
+        id: randomUUID(),
         storeId: store.id,
         userId: user.id,
         externalId: "ORD-002",
         buyerName: "Maria Garcia",
         buyerEmail: "maria.garcia@email.com",
-        address: { city: "Monterrey", street: "Calle 5 de Mayo 456", zip: "64000" },
-        products: [
+        address: JSON.stringify({ city: "Monterrey", street: "Calle 5 de Mayo 456", zip: "64000" }),
+        products: JSON.stringify([
           { name: "Producto C", quantity: 1, price: 1200 },
-        ],
+        ]),
         totalAmount: 1200,
         status: "shipped",
         exported: true,
@@ -78,6 +83,7 @@ export async function GET() {
     // 4. Crear una transacción de ejemplo
     await prisma.transaction.create({
       data: {
+        id: randomUUID(),
         userId: user.id,
         type: "charge",
         amount: 500,

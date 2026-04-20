@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -38,22 +39,23 @@ export async function POST(req: Request) {
       update: {
         status: body.financial_status || "paid",
         totalAmount: parseFloat(body.total_price) || 0,
-        products,
+        products: JSON.stringify(products),
       },
       create: {
+        id: randomUUID(),
         storeId: store.id,
         userId: store.userId,
         externalId: String(body.id),
         buyerName: `${shippingAddr.first_name || ""} ${shippingAddr.last_name || ""}`.trim() || body.customer?.first_name || "Sin nombre",
         buyerEmail: body.customer?.email || body.email || "",
-        address: {
+        address: JSON.stringify({
           street: shippingAddr.address1 || "",
           city: shippingAddr.city || "",
           province: shippingAddr.province || "",
           zipcode: shippingAddr.zip || "",
           country: shippingAddr.country_code || "AR",
-        },
-        products,
+        }),
+        products: JSON.stringify(products),
         courier: body.shipping_lines?.[0]?.title || null,
         status: body.financial_status || "paid",
         totalAmount: parseFloat(body.total_price) || 0,

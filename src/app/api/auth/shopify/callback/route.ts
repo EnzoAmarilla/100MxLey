@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
         domain: shop,
       },
       create: {
+        id: randomUUID(),
         userId: state,
         platform: "shopify",
         storeId: shop,
