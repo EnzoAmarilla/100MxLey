@@ -19,7 +19,8 @@ export async function GET() {
     );
   }
 
-  const authUrl = `https://www.tiendanube.com/apps/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+  const scope = "read_orders write_orders read_customers read_products";
+  const authUrl = `https://www.tiendanube.com/apps/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
 
   return NextResponse.json({ url: authUrl });
 }
