@@ -15,13 +15,13 @@ import {
 } from "lucide-react";
 
 const plan = {
-  name: "Plan Pro",
-  price: 4999,
-  cycle: "mensual",
-  status: "active",
-  startDate: "06 Mar 2026",
-  nextBilling: "06 May 2026",
-  daysLeft: 16,
+  name: "Sin plan activo",
+  price: 0,
+  cycle: "-",
+  status: "inactive",
+  startDate: "-",
+  nextBilling: "-",
+  daysLeft: 0,
 };
 
 const features = [
@@ -33,17 +33,13 @@ const features = [
   "Historial de 12 meses",
 ];
 
-const invoices = [
-  { id: "FAC-0003", date: "06 Abr 2026", amount: 4999, status: "paid", method: "Visa •••• 4242" },
-  { id: "FAC-0002", date: "06 Mar 2026", amount: 4999, status: "paid", method: "Visa •••• 4242" },
-  { id: "FAC-0001", date: "06 Feb 2026", amount: 2999, status: "paid", method: "MercadoPago" },
-];
+const invoices: any[] = [];
 
 const usageStats = [
-  { label: "Rótulos exportados", value: 15, max: 999, unit: "" },
-  { label: "Seguimientos activos", value: 8, max: 500, unit: "" },
-  { label: "Tiendas conectadas", value: 1, max: 5, unit: "" },
-  { label: "Créditos usados este mes", value: 19, max: 999, unit: "" },
+  { label: "Rótulos exportados", value: 0, max: 10, unit: "" },
+  { label: "Seguimientos activos", value: 0, max: 10, unit: "" },
+  { label: "Tiendas conectadas", value: 0, max: 1, unit: "" },
+  { label: "Créditos usados este mes", value: 0, max: 100, unit: "" },
 ];
 
 export default function BillingPage() {
@@ -179,23 +175,31 @@ export default function BillingPage() {
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv) => (
-              <tr key={inv.id} className="border-b border-brand-border hover:bg-brand-surface transition-colors">
-                <td className="px-5 py-3 font-mono text-neon-cyan/80 text-xs">{inv.id}</td>
-                <td className="px-5 py-3 text-[var(--text-secondary)] text-xs">{inv.date}</td>
-                <td className="px-5 py-3 font-mono font-bold text-[var(--text-primary)]">
-                  ${inv.amount.toLocaleString("es-AR")}
-                </td>
-                <td className="px-5 py-3 text-[var(--text-secondary)] text-xs">{inv.method}</td>
-                <td className="px-5 py-3"><Badge variant="green">Pagada</Badge></td>
-                <td className="px-5 py-3">
-                  <button className="flex items-center gap-1 text-xs text-neon-cyan/60 hover:text-neon-cyan transition-colors">
-                    <Download className="h-3.5 w-3.5" />
-                    PDF
-                  </button>
+            {invoices.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-[var(--text-secondary)] italic">
+                  No hay facturas disponibles aún.
                 </td>
               </tr>
-            ))}
+            ) : (
+              invoices.map((inv) => (
+                <tr key={inv.id} className="border-b border-brand-border hover:bg-brand-surface transition-colors">
+                  <td className="px-5 py-3 font-mono text-neon-cyan/80 text-xs">{inv.id}</td>
+                  <td className="px-5 py-3 text-[var(--text-secondary)] text-xs">{inv.date}</td>
+                  <td className="px-5 py-3 font-mono font-bold text-[var(--text-primary)]">
+                    ${inv.amount.toLocaleString("es-AR")}
+                  </td>
+                  <td className="px-5 py-3 text-[var(--text-secondary)] text-xs">{inv.method}</td>
+                  <td className="px-5 py-3"><Badge variant="green">Pagada</Badge></td>
+                  <td className="px-5 py-3">
+                    <button className="flex items-center gap-1 text-xs text-neon-cyan/60 hover:text-neon-cyan transition-colors">
+                      <Download className="h-3.5 w-3.5" />
+                      PDF
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

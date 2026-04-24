@@ -16,15 +16,7 @@ import {
   Save,
 } from "lucide-react";
 
-const initialProducts = [
-  { sku: "CAM-NEG-M",  name: "Camiseta negra talle M",  category: "Camisetas",  stock: 45, min: 10, cost: 3200,  price: 8500,  sold: 23, trend: +12 },
-  { sku: "CAM-BLA-L",  name: "Camiseta blanca talle L", category: "Camisetas",  stock: 38, min: 10, cost: 3200,  price: 8500,  sold: 19, trend: +5  },
-  { sku: "PAN-AZU-38", name: "Pantalón azul talle 38",  category: "Pantalones", stock: 7,  min: 8,  cost: 6500,  price: 15000, sold: 31, trend: -8  },
-  { sku: "BUZ-GRI-XL", name: "Buzo gris talle XL",      category: "Buzos",      stock: 28, min: 6,  cost: 7800,  price: 18000, sold: 14, trend: +18 },
-  { sku: "REM-ROJ-S",  name: "Remera roja talle S",     category: "Remeras",    stock: 3,  min: 10, cost: 2900,  price: 7200,  sold: 42, trend: +31 },
-  { sku: "JKT-NEG-M",  name: "Jacket negro talle M",    category: "Jackets",    stock: 67, min: 5,  cost: 11000, price: 24000, sold: 8,  trend: -2  },
-  { sku: "SHO-BLA-40", name: "Short blanco talle 40",   category: "Shorts",     stock: 23, min: 8,  cost: 3900,  price: 9800,  sold: 17, trend: +7  },
-];
+const initialProducts: any[] = [];
 
 const categories = ["Camisetas", "Remeras", "Pantalones", "Buzos", "Jackets", "Shorts", "Accesorios", "Otro"];
 

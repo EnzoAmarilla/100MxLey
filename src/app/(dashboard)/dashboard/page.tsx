@@ -8,14 +8,14 @@ import { Zap, ShoppingBag, Store, Package, CheckCircle } from "lucide-react";
 
 // Datos simulados basados en los 25 pedidos del seed
 const tnMetrics = {
-  ingresos:   289500,
-  mercadopago: 275025,
-  gastos:      60480,   // 25 pedidos × $1800 envío + 2% comisión TN
-  ganancia:    229045,
-  changeIngresos:   +18,
-  changeMercadopago: +11,
-  changeGastos:      +4,
-  changeGanancia:   +22,
+  ingresos:   0,
+  mercadopago: 0,
+  gastos:      0,
+  ganancia:    0,
+  changeIngresos:   0,
+  changeMercadopago: 0,
+  changeGastos:      0,
+  changeGanancia:   0,
 };
 
 // Shopify sin pedidos todavía
@@ -72,15 +72,17 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Tienda conectada banner */}
-      <div className="relative flex items-center gap-3 rounded-xl border border-neon-green/25 bg-neon-green/[0.04] px-4 py-3 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-green/40 to-transparent" />
-        <CheckCircle className="h-4 w-4 text-neon-green shrink-0 drop-shadow-[0_0_6px_#00FF88]" />
-        <p className="text-xs text-[var(--text-secondary)]">
-          <span className="text-neon-green font-medium">Indumentaria Mxley</span>
-          {" "}conectada · mostrando datos de los últimos 30 días
-        </p>
-      </div>
+      {/* Tienda conectada banner (Oculto si no hay datos) */}
+      {tnMetrics.ingresos > 0 && (
+        <div className="relative flex items-center gap-3 rounded-xl border border-neon-green/25 bg-neon-green/[0.04] px-4 py-3 overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-green/40 to-transparent" />
+          <CheckCircle className="h-4 w-4 text-neon-green shrink-0 drop-shadow-[0_0_6px_#00FF88]" />
+          <p className="text-xs text-[var(--text-secondary)]">
+            <span className="text-neon-green font-medium">Indumentaria Mxley</span>
+            {" "}conectada · mostrando datos de los últimos 30 días
+          </p>
+        </div>
+      )}
 
       {/* ── Métricas Tiendanube ── */}
       <div>
@@ -122,9 +124,9 @@ export default function DashboardPage() {
       {/* ── Pedidos por estado ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Listos para despachar", value: 12, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
-          { label: "En camino",             value: 8,  color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
-          { label: "Entregados",            value: 5,  color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
+          { label: "Listos para despachar", value: 0, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
+          { label: "En camino",             value: 0, color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
+          { label: "Entregados",            value: 0, color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
         ].map((c) => (
           <div key={c.label} className="relative rounded-xl border border-brand-border bg-brand-card p-5">
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${c.glow} to-transparent rounded-t-xl`} />
