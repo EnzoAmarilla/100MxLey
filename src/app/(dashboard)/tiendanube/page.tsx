@@ -8,15 +8,12 @@ import { OrderFilters } from "@/components/orders/order-filters";
 import { 
   ShoppingBag, 
   RefreshCcw, 
-  CheckCircle, 
   ChevronLeft, 
   ChevronRight,
   Package,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Loader2,
-  TrendingUp,
   CreditCard
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";

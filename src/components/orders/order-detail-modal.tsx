@@ -8,7 +8,6 @@ import {
   Phone, 
   MapPin, 
   Package, 
-  CreditCard, 
   Truck, 
   Calendar,
   ExternalLink
