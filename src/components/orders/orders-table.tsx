@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileDown, CheckSquare, Square } from "lucide-react";
+import { FileDown, CheckSquare, Square, Eye, Package } from "lucide-react";
+import { OrderDetailModal } from "./order-detail-modal";
 
 interface Product {
   sku: string;
@@ -14,10 +15,14 @@ interface Order {
   id: string;
   externalId: string;
   buyerName: string;
-  products: any; // Changed from any[] to any to handle raw strings/nulls
+  buyerEmail: string;
+  address: any;
+  products: any; 
+  rawPayload: any;
   courier: string | null;
   status: string;
   exported: boolean;
+  totalAmount: number;
   createdAt: string;
 }
 
@@ -56,6 +61,7 @@ const statusBadge = (status: string) => {
 
 export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   const toggleAll = () => {
     if (selected.size === orders.length) {
@@ -83,7 +89,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
               <Square className="h-5 w-5" />
             )}
           </button>
-          <span className="text-sm text-[var(--text-secondary)]">
+          <span className="text-sm text-[var(--text-secondary)] font-medium">
             {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           </span>
         </div>
@@ -97,72 +103,85 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-brand-border">
+      <div className="overflow-x-auto rounded-xl border border-brand-border bg-brand-card/50 backdrop-blur-md">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-brand-border bg-brand-surface">
+            <tr className="border-b border-brand-border bg-brand-surface/80">
               <th className="px-4 py-3 text-left w-10"></th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
                 # Pedido
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
                 Comprador
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
                 Productos
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
-                Courier
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
+                Total
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
                 Estado
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
-                Fecha
+              <th className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">
+                Acciones
               </th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-secondary)] text-sm">
-                  No hay pedidos para mostrar
+                <td colSpan={7} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                  <div className="flex flex-col items-center gap-2">
+                    <Package className="h-8 w-8 opacity-20" />
+                    <span>No hay pedidos para mostrar</span>
+                  </div>
                 </td>
               </tr>
             ) : (
               orders.map((order) => (
                 <tr
                   key={order.id}
-                  className="border-b border-brand-border hover:bg-brand-surface transition-colors"
+                  className="border-b border-brand-border hover:bg-brand-surface/40 transition-all duration-200"
                 >
                   <td className="px-4 py-3">
                     <button onClick={() => toggle(order.id)}>
                       {selected.has(order.id) ? (
-                        <CheckSquare className="h-4 w-4 text-neon-cyan" />
+                        <CheckSquare className="h-4 w-4 text-neon-cyan drop-shadow-[0_0_8px_rgba(0,245,255,0.4)]" />
                       ) : (
                         <Square className="h-4 w-4 text-[var(--text-secondary)]" />
                       )}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-mono text-neon-cyan/80 text-xs">
+                  <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs">
                     #{order.externalId}
                   </td>
-                  <td className="px-4 py-3 text-[var(--text-primary)]">
-                    {order.buyerName}
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-[var(--text-primary)]">{order.buyerName}</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">{order.buyerEmail}</div>
                   </td>
                   <td className="px-4 py-3 text-[var(--text-secondary)]">
-                    {parseProducts(order.products).map((p, i) => (
-                      <span key={i} className="block text-xs">
-                        {p.sku} × {p.quantity}
-                      </span>
-                    ))}
+                    <div className="max-w-[150px] truncate">
+                      {parseProducts(order.products).map((p, i) => (
+                        <span key={i} className="inline-block bg-brand-surface border border-brand-border px-1.5 py-0.5 rounded text-[10px] mr-1 mb-1">
+                          {p.sku} × {p.quantity}
+                        </span>
+                      ))}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-[var(--text-primary)] text-xs">
-                    {order.courier || "—"}
+                  <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                    ${order.totalAmount?.toLocaleString("es-AR")}
                   </td>
                   <td className="px-4 py-3">{statusBadge(order.status)}</td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)] text-xs font-mono">
-                    {new Date(order.createdAt).toLocaleDateString("es-AR")}
+                  <td className="px-4 py-3">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      className="h-8 w-8 p-0"
+                      onClick={() => setViewingOrder(order)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               ))
@@ -170,6 +189,12 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
           </tbody>
         </table>
       </div>
+
+      <OrderDetailModal 
+        isOpen={!!viewingOrder} 
+        onClose={() => setViewingOrder(null)} 
+        order={viewingOrder}
+      />
     </div>
   );
 }

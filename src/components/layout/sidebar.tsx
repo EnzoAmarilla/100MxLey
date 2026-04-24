@@ -21,12 +21,12 @@ import { useNavProgress } from "@/components/layout/nav-progress";
 
 const navItems = [
   { label: "Inicio", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Integraciones", href: "/integrations", icon: Zap },
   {
     label: "Tiendanube",
     icon: ShoppingBag,
     children: [
       { label: "Pedidos", href: "/tiendanube" },
-      { label: "Conectar tienda", href: "/tiendanube?tab=connect" },
     ],
   },
   {
@@ -34,7 +34,6 @@ const navItems = [
     icon: Store,
     children: [
       { label: "Pedidos", href: "/shopify" },
-      { label: "Conectar tienda", href: "/shopify?tab=connect" },
     ],
   },
   { label: "Facturación", href: "/billing", icon: Receipt },

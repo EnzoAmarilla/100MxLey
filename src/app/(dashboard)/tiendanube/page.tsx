@@ -5,7 +5,20 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OrdersTable } from "@/components/orders/orders-table";
 import { OrderFilters } from "@/components/orders/order-filters";
-import { ShoppingBag, Link2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  ShoppingBag, 
+  RefreshCcw, 
+  CheckCircle, 
+  ChevronLeft, 
+  ChevronRight,
+  Package,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  TrendingUp,
+  CreditCard
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 // Skeleton row for table loading
@@ -44,17 +57,25 @@ function TableSkeleton() {
   );
 }
 
+interface Metrics {
+  total: number;
+  paid: number;
+  pending: number;
+  revenue: number;
+}
+
 export default function TiendanubePage() {
   const searchParams = useSearchParams();
   const connected    = searchParams.get("connected");
-  const tab          = searchParams.get("tab");
 
   const [orders, setOrders]     = useState<any[]>([]);
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(0);
   const [loading, setLoading]   = useState(true);
+  const [syncing, setSyncing]   = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [hasOrders, setHasOrders] = useState<boolean | null>(null); // null = unknown yet
+  
+  const [metrics, setMetrics] = useState<Metrics>({ total: 0, paid: 0, pending: 0, revenue: 0 });
 
   const [status, setStatus]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -64,7 +85,6 @@ export default function TiendanubePage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchOrders = useCallback(async (p = 0) => {
-    // Cancel any in-flight request
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -81,24 +101,46 @@ export default function TiendanubePage() {
       setOrders(data.orders ?? []);
       setTotal(data.total ?? 0);
       setPage(p);
-      if (hasOrders === null) setHasOrders((data.total ?? 0) > 0);
+
+      // Calculate simple metrics from visible data for now (or we could have a separate API)
+      if (data.orders) {
+        const m = data.orders.reduce((acc: any, curr: any) => {
+          acc.total++;
+          if (curr.status === "paid") acc.paid++;
+          else if (curr.status === "pending") acc.pending++;
+          acc.revenue += curr.totalAmount || 0;
+          return acc;
+        }, { total: 0, paid: 0, pending: 0, revenue: 0 });
+        setMetrics(m);
+      }
     } catch (e: any) {
       if (e.name !== "AbortError") console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [status, dateFrom, dateTo, courier, hasOrders]);
-
-  // Reset page and refetch when filters change
-  useEffect(() => {
-    fetchOrders(0);
   }, [status, dateFrom, dateTo, courier]);
 
-  async function handleConnect() {
-    const res  = await fetch("/api/auth/tiendanube");
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-  }
+  useEffect(() => {
+    fetchOrders(0);
+  }, [status, dateFrom, dateTo, courier, fetchOrders]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Sincronización completa: ${data.count} pedidos procesados.`);
+        fetchOrders(0);
+      } else {
+        alert("Error al sincronizar con Tiendanube.");
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   async function handleExport(orderIds: string[]) {
     setExporting(true);
@@ -130,83 +172,128 @@ export default function TiendanubePage() {
   const pageSize  = 50;
   const totalPages = Math.ceil(total / pageSize);
 
-  // Show connect screen only once we know there are no orders (avoids flash)
-  if (!loading && hasOrders === false && tab !== "connect") {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tiendanube</h1>
-        {connected && (
-          <div className="flex items-center gap-2 rounded-xl border border-neon-green/30 bg-neon-green/5 p-4">
-            <CheckCircle className="h-5 w-5 text-neon-green" />
-            <p className="text-sm text-neon-green">¡Tienda conectada exitosamente!</p>
-          </div>
-        )}
-        <Card className="text-center py-12">
-          <ShoppingBag className="h-16 w-16 text-[var(--text-secondary)] mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Conectá tu tienda de Tiendanube</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-md mx-auto">
-            Conecta tu tienda para sincronizar pedidos automáticamente y generar rótulos de envío.
-          </p>
-          <Button onClick={handleConnect} size="lg">
-            <Link2 className="h-5 w-5" />
-            Conectar Tiendanube
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Pedidos Tiendanube</h1>
-          {!loading && (
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              {total} pedido{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""}
-            </p>
-          )}
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+            <ShoppingBag className="h-8 w-8 text-neon-cyan" />
+            Pedidos Tiendanube
+          </h1>
+          <p className="text-[var(--text-secondary)] mt-1">
+            Gestiona tus pedidos y genera rótulos de envío.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleSync} 
+            disabled={syncing}
+            className="gap-2 border-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/5"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+            Sincronizar
+          </Button>
         </div>
       </div>
 
-      <OrderFilters
-        status={status} dateFrom={dateFrom} dateTo={dateTo} courier={courier}
-        onStatusChange={setStatus} onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo} onCourierChange={setCourier}
-      />
-
-      {loading ? (
-        <TableSkeleton />
-      ) : (
-        <>
-          <OrdersTable orders={orders} onExport={handleExport} exporting={exporting} />
-
-          {/* Paginación */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-[var(--text-secondary)]">
-                Página {page + 1} de {totalPages} · {total} pedidos
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary" size="sm"
-                  disabled={page === 0}
-                  onClick={() => fetchOrders(page - 1)}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Anterior
-                </Button>
-                <Button
-                  variant="secondary" size="sm"
-                  disabled={page >= totalPages - 1}
-                  onClick={() => fetchOrders(page + 1)}
-                >
-                  Siguiente <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-cyan/10">
+              <Package className="h-5 w-5 text-neon-cyan" />
             </div>
-          )}
-        </>
-      )}
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Total Pedidos</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{total}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-green/10">
+              <CheckCircle2 className="h-5 w-5 text-neon-green" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Pagados</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.paid}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-purple/10">
+              <Clock className="h-5 w-5 text-neon-purple" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Pendientes</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.pending}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-cyan/10">
+              <CreditCard className="h-5 w-5 text-neon-cyan" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Ventas (Vista)</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">${metrics.revenue.toLocaleString("es-AR")}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Listado de Pedidos</h2>
+          <div className="text-xs text-[var(--text-secondary)]">
+            Mostrando {orders.length} de {total}
+          </div>
+        </div>
+        
+        <OrderFilters
+          status={status} dateFrom={dateFrom} dateTo={dateTo} courier={courier}
+          onStatusChange={setStatus} onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo} onCourierChange={setCourier}
+        />
+
+        {loading ? (
+          <TableSkeleton />
+        ) : (
+          <>
+            <OrdersTable orders={orders} onExport={handleExport} exporting={exporting} />
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-1 pt-4">
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Página {page + 1} de {totalPages} · {total} pedidos
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary" size="sm"
+                    disabled={page === 0}
+                    onClick={() => fetchOrders(page - 1)}
+                    className="h-8"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+                  </Button>
+                  <Button
+                    variant="secondary" size="sm"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => fetchOrders(page + 1)}
+                    className="h-8"
+                  >
+                    Siguiente <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

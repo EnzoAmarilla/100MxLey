@@ -23,6 +23,7 @@ model order {
   exported     Boolean  @default(false)
   notified     Boolean  @default(false)
   totalAmount  Float
+  rawPayload   Json?
   createdAt    DateTime @default(now())
   store        store    @relation(fields: [storeId], references: [id], onDelete: NoAction, map: "Order_storeId_fkey")
   user         user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Order_userId_fkey")
@@ -39,6 +40,7 @@ model store {
   storeName   String
   accessToken String
   domain      String?
+  lastSync    DateTime?
   createdAt   DateTime @default(now())
   order       order[]
   user        user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Store_userId_fkey")

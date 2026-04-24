@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const code = searchParams.get("code");
 
   if (!code) {
-    return NextResponse.redirect(new URL("/tiendanube?error=no_code", req.url));
+    return NextResponse.redirect(new URL("/integrations?error=no_code", req.url));
   }
 
   try {
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
-      return NextResponse.redirect(new URL("/tiendanube?error=token_failed", req.url));
+      return NextResponse.redirect(new URL("/integrations?error=token_failed", req.url));
     }
 
     // Get store info
@@ -89,8 +89,8 @@ export async function GET(req: Request) {
       }
     );
 
-    return NextResponse.redirect(new URL("/tiendanube?connected=true", req.url));
+    return NextResponse.redirect(new URL("/integrations?connected=true", req.url));
   } catch {
-    return NextResponse.redirect(new URL("/tiendanube?error=unknown", req.url));
+    return NextResponse.redirect(new URL("/integrations?error=unknown", req.url));
   }
 }
