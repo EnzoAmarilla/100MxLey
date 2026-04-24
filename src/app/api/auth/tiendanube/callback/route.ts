@@ -25,7 +25,6 @@ export async function GET(req: Request) {
       body: JSON.stringify({
         client_id: process.env.TIENDANUBE_CLIENT_ID,
         client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
-        grant_type: "authorization_code",
         code,
       }),
     });
@@ -33,6 +32,7 @@ export async function GET(req: Request) {
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
+      console.error("Token exchange failed:", tokenData);
       return NextResponse.redirect(new URL("/integrations?error=token_failed", req.url));
     }
 
@@ -58,6 +58,8 @@ export async function GET(req: Request) {
       },
       update: {
         accessToken: tokenData.access_token,
+        tokenType: tokenData.token_type,
+        scope: tokenData.scope,
         storeName: storeData.name?.es || storeData.name?.en || "Tienda",
         domain: storeData.original_domain,
       },
@@ -68,6 +70,8 @@ export async function GET(req: Request) {
         storeId: String(tokenData.user_id),
         storeName: storeData.name?.es || storeData.name?.en || "Tienda",
         accessToken: tokenData.access_token,
+        tokenType: tokenData.token_type,
+        scope: tokenData.scope,
         domain: storeData.original_domain,
       },
     });

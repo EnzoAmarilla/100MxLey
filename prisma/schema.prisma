@@ -39,6 +39,8 @@ model store {
   storeId     String
   storeName   String
   accessToken String
+  tokenType   String?
+  scope       String?
   domain      String?
   lastSync    DateTime?
   createdAt   DateTime @default(now())
