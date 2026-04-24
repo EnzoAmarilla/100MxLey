@@ -168,7 +168,7 @@ export default function IntegrationsPage() {
                   <ExternalLink className="h-3.5 w-3.5" /> Pedidos
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
                   className="w-full gap-2 border-neon-red/20 text-neon-red hover:bg-neon-red/10 hover:border-neon-red/40"
                   onClick={handleDisconnectTiendanube}

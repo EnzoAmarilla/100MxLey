@@ -183,7 +183,7 @@ export default function TiendanubePage() {
         </div>
         <div className="flex gap-3">
           <Button 
-            variant="outline" 
+            variant="ghost" 
             onClick={handleSync} 
             disabled={syncing}
             className="gap-2 border-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/5"
