@@ -131,7 +131,7 @@ export default function IntegrationsPage() {
                 <CheckCircle2 className="h-3 w-3" /> Conectado
               </Badge>
             ) : (
-              <Badge variant="secondary" className="flex items-center gap-1.5 px-2.5 py-0.5 opacity-70">
+              <Badge variant="default" className="flex items-center gap-1.5 px-2.5 py-0.5 opacity-70">
                 <XCircle className="h-3 w-3" /> No conectado
               </Badge>
             )}
@@ -207,7 +207,7 @@ export default function IntegrationsPage() {
             <div className="p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20">
               <Store className="h-8 w-8 text-neon-purple" />
             </div>
-            <Badge variant="secondary" className="px-2.5 py-0.5">Próximamente</Badge>
+            <Badge variant="default" className="px-2.5 py-0.5">Próximamente</Badge>
           </div>
 
           <div className="space-y-2 mb-8 flex-1">
