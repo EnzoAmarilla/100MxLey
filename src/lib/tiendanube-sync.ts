@@ -7,89 +7,116 @@ type Store = {
   accessToken: string;
 };
 
-export async function syncTiendanubeOrders(store: Store, userId: string): Promise<number> {
-  const res = await fetch(
-    `https://api.tiendanube.com/v1/${store.storeId}/orders?per_page=50`,
-    {
-      headers: {
-        Authentication: `bearer ${store.accessToken}`,
-        "User-Agent": "100Mxley (support@100mxley.com)",
-      },
-    }
-  );
+function mapStatus(order: any): string {
+  if (order.status === "cancelled") return "cancelled";
+  if (order.status === "closed")    return "archived";
+  if (order.shipping_status === "delivered") return "delivered";
+  if (order.shipping_status === "shipped")   return "shipped";
+  if (order.payment_status === "paid") {
+    return order.shipping_tracking_number ? "ready_to_ship" : "paid";
+  }
+  return "pending";
+}
 
-  if (!res.ok) {
-    const err = await res.json();
-    console.error("[TIENDANUBE_SYNC_ERROR]", err);
-    throw new Error("Error al consultar Tiendanube");
+export async function syncTiendanubeOrders(store: Store, userId: string): Promise<number> {
+  const PER_PAGE = 200;
+  let page = 1;
+  const allOrders: any[] = [];
+
+  while (true) {
+    const res = await fetch(
+      `https://api.tiendanube.com/v1/${store.storeId}/orders?per_page=${PER_PAGE}&page=${page}`,
+      {
+        headers: {
+          Authentication: `bearer ${store.accessToken}`,
+          "User-Agent": "100Mxley (support@100mxley.com)",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.error("[TIENDANUBE_SYNC_ERROR]", err);
+      throw new Error("Error al consultar Tiendanube");
+    }
+
+    const ordersData = await res.json();
+    if (!Array.isArray(ordersData) || ordersData.length === 0) break;
+
+    allOrders.push(...ordersData);
+    if (ordersData.length < PER_PAGE) break;
+    page++;
   }
 
-  const ordersData = await res.json();
-  let syncedCount = 0;
+  const BATCH = 20;
+  for (let i = 0; i < allOrders.length; i += BATCH) {
+    const batch = allOrders.slice(i, i + BATCH);
 
-  for (const tnOrder of ordersData) {
-    let status = "pending";
-    if (tnOrder.status === "cancelled") status = "cancelled";
-    else if (tnOrder.payment_status === "paid") status = "paid";
-    if (tnOrder.shipping_status === "shipped") status = "shipped";
-    if (tnOrder.shipping_status === "delivered") status = "delivered";
+    await Promise.all(
+      batch.map((tnOrder) => {
+        const status = mapStatus(tnOrder);
 
-    const address = {
-      street: tnOrder.shipping_address?.address,
-      number: tnOrder.shipping_address?.number,
-      floor: tnOrder.shipping_address?.floor,
-      locality: tnOrder.shipping_address?.locality,
-      city: tnOrder.shipping_address?.city,
-      province: tnOrder.shipping_address?.province,
-      zipcode: tnOrder.shipping_address?.zipcode,
-      country: tnOrder.shipping_address?.country,
-    };
+        const address = {
+          street:   tnOrder.shipping_address?.address,
+          number:   tnOrder.shipping_address?.number,
+          floor:    tnOrder.shipping_address?.floor,
+          locality: tnOrder.shipping_address?.locality,
+          city:     tnOrder.shipping_address?.city,
+          province: tnOrder.shipping_address?.province,
+          zipcode:  tnOrder.shipping_address?.zipcode,
+          country:  tnOrder.shipping_address?.country,
+        };
 
-    const products = (tnOrder.products ?? []).map((p: any) => ({
-      id: String(p.id),
-      name: p.name,
-      sku: p.sku || "N/A",
-      quantity: p.quantity,
-      price: parseFloat(p.price),
-    }));
+        const products = (tnOrder.products ?? []).map((p: any) => ({
+          id:       String(p.id),
+          name:     p.name,
+          sku:      p.sku || "N/A",
+          quantity: p.quantity,
+          price:    parseFloat(p.price),
+        }));
 
-    await prisma.order.upsert({
-      where: {
-        storeId_externalId: {
-          storeId: store.id,
-          externalId: String(tnOrder.id),
-        },
-      },
-      update: {
-        status,
-        buyerName: tnOrder.customer?.name || "Sin nombre",
-        buyerEmail: tnOrder.customer?.email || "",
-        address: JSON.stringify(address),
-        products: JSON.stringify(products),
-        totalAmount: parseFloat(tnOrder.total),
-        rawPayload: tnOrder,
-      },
-      create: {
-        id: randomUUID(),
-        storeId: store.id,
-        userId,
-        externalId: String(tnOrder.id),
-        buyerName: tnOrder.customer?.name || "Sin nombre",
-        buyerEmail: tnOrder.customer?.email || "",
-        address: JSON.stringify(address),
-        products: JSON.stringify(products),
-        status,
-        totalAmount: parseFloat(tnOrder.total),
-        rawPayload: tnOrder,
-      },
-    });
-    syncedCount++;
+        const trackingCode = tnOrder.shipping_tracking_number || null;
+
+        return prisma.order.upsert({
+          where: {
+            storeId_externalId: {
+              storeId:    store.id,
+              externalId: String(tnOrder.id),
+            },
+          },
+          update: {
+            status,
+            buyerName:    tnOrder.customer?.name  || "Sin nombre",
+            buyerEmail:   tnOrder.customer?.email || "",
+            address:      JSON.stringify(address),
+            products:     JSON.stringify(products),
+            totalAmount:  parseFloat(tnOrder.total),
+            trackingCode,
+            rawPayload:   tnOrder,
+          },
+          create: {
+            id:           randomUUID(),
+            storeId:      store.id,
+            userId,
+            externalId:   String(tnOrder.id),
+            buyerName:    tnOrder.customer?.name  || "Sin nombre",
+            buyerEmail:   tnOrder.customer?.email || "",
+            address:      JSON.stringify(address),
+            products:     JSON.stringify(products),
+            status,
+            totalAmount:  parseFloat(tnOrder.total),
+            trackingCode,
+            rawPayload:   tnOrder,
+          },
+        });
+      })
+    );
   }
 
   await prisma.store.update({
     where: { id: store.id },
-    data: { lastSync: new Date() },
+    data:  { lastSync: new Date() },
   });
 
-  return syncedCount;
+  return allOrders.length;
 }

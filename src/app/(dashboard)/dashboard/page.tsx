@@ -23,6 +23,8 @@ export default function DashboardPage() {
   const [syncing, setSyncing]         = useState(false);
   const [syncMsg, setSyncMsg]         = useState("");
 
+  const [toPay, setToPay]             = useState(0);
+  const [toPack, setToPack]           = useState(0);
   const [readyToShip, setReadyToShip] = useState(0);
   const [inTransit, setInTransit]     = useState(0);
   const [delivered, setDelivered]     = useState(0);
@@ -58,7 +60,9 @@ export default function DashboardPage() {
       .then((data) => {
         setTnIngresos(data.totalRevenue ?? 0);
         const sc = data.statusCounts ?? {};
-        setReadyToShip(sc.paid ?? 0);
+        setToPay(sc.pending ?? 0);
+        setToPack(sc.paid ?? 0);
+        setReadyToShip(sc.ready_to_ship ?? 0);
         setInTransit(sc.shipped ?? 0);
         setDelivered(sc.delivered ?? 0);
       })
@@ -187,11 +191,13 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Pedidos por estado ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: "Listos para despachar", value: readyToShip, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
-          { label: "En camino",             value: inTransit,   color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
-          { label: "Entregados",            value: delivered,   color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
+          { label: "Por cobrar",    value: toPay,       color: "text-neon-red",    glow: "via-neon-red/30",    dot: "bg-neon-red"    },
+          { label: "Por empaquetar",value: toPack,      color: "text-neon-purple", glow: "via-neon-purple/30", dot: "bg-neon-purple" },
+          { label: "Por enviar",    value: readyToShip, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
+          { label: "En camino",     value: inTransit,   color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
+          { label: "Entregados",    value: delivered,   color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
         ].map((c) => (
           <div key={c.label} className="relative rounded-xl border border-brand-border bg-brand-card p-5">
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${c.glow} to-transparent rounded-t-xl`} />

@@ -31,9 +31,13 @@ export function OrderFilters({
         className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-brand-accent focus:outline-none"
       >
         <option value="">Todos los estados</option>
-        <option value="paid">Pagado</option>
-        <option value="shipped">Enviado</option>
+        <option value="pending">Por cobrar</option>
+        <option value="paid">Por empaquetar</option>
+        <option value="ready_to_ship">Por enviar</option>
+        <option value="shipped">En camino</option>
+        <option value="delivered">Entregado</option>
         <option value="cancelled">Cancelado</option>
+        <option value="archived">Archivado</option>
       </select>
 
       <Input

@@ -16,7 +16,6 @@ import {
   Loader2,
   CreditCard
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 
 // Skeleton row for table loading
 function TableSkeleton() {
@@ -56,14 +55,15 @@ function TableSkeleton() {
 
 interface Metrics {
   total: number;
-  paid: number;
   pending: number;
+  paid: number;
+  ready_to_ship: number;
+  shipped: number;
+  delivered: number;
   revenue: number;
 }
 
 export default function TiendanubePage() {
-  const searchParams = useSearchParams();
-  const connected    = searchParams.get("connected");
 
   const [orders, setOrders]     = useState<any[]>([]);
   const [total, setTotal]       = useState(0);
@@ -72,7 +72,7 @@ export default function TiendanubePage() {
   const [syncing, setSyncing]   = useState(false);
   const [exporting, setExporting] = useState(false);
   
-  const [metrics, setMetrics] = useState<Metrics>({ total: 0, paid: 0, pending: 0, revenue: 0 });
+  const [metrics, setMetrics] = useState<Metrics>({ total: 0, pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, revenue: 0 });
 
   const [status, setStatus]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -101,13 +101,19 @@ export default function TiendanubePage() {
 
       // Calculate simple metrics from visible data for now (or we could have a separate API)
       if (data.orders) {
-        const m = data.orders.reduce((acc: any, curr: any) => {
-          acc.total++;
-          if (curr.status === "paid") acc.paid++;
-          else if (curr.status === "pending") acc.pending++;
-          acc.revenue += curr.totalAmount || 0;
-          return acc;
-        }, { total: 0, paid: 0, pending: 0, revenue: 0 });
+        const m = data.orders.reduce(
+          (acc: Metrics, curr: any) => {
+            acc.total++;
+            if (curr.status === "pending")       acc.pending++;
+            else if (curr.status === "paid")     acc.paid++;
+            else if (curr.status === "ready_to_ship") acc.ready_to_ship++;
+            else if (curr.status === "shipped")  acc.shipped++;
+            else if (curr.status === "delivered") acc.delivered++;
+            acc.revenue += curr.totalAmount || 0;
+            return acc;
+          },
+          { total: 0, pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, revenue: 0 }
+        );
         setMetrics(m);
       }
     } catch (e: any) {
@@ -195,26 +201,26 @@ export default function TiendanubePage() {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-neon-cyan/10">
               <Package className="h-5 w-5 text-neon-cyan" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">Total Pedidos</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Total</p>
               <p className="text-xl font-bold text-[var(--text-primary)]">{total}</p>
             </div>
           </div>
         </Card>
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-neon-green/10">
-              <CheckCircle2 className="h-5 w-5 text-neon-green" />
+            <div className="p-2 rounded-lg bg-neon-red/10">
+              <CreditCard className="h-5 w-5 text-neon-red" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">Pagados</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.paid}</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Por cobrar</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.pending}</p>
             </div>
           </div>
         </Card>
@@ -224,8 +230,30 @@ export default function TiendanubePage() {
               <Clock className="h-5 w-5 text-neon-purple" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">Pendientes</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.pending}</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Por empaquetar</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.paid}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-yellow/10">
+              <Package className="h-5 w-5 text-neon-yellow" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Por enviar</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.ready_to_ship}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-green/10">
+              <CheckCircle2 className="h-5 w-5 text-neon-green" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Entregados</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.delivered}</p>
             </div>
           </div>
         </Card>
