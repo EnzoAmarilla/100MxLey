@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { syncTiendanubeOrders } from "@/lib/tiendanube-sync";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -93,6 +94,14 @@ export async function GET(req: Request) {
         }),
       }
     );
+
+    // Auto-sync orders on first connection
+    const savedStore = await prisma.store.findFirst({
+      where: { userId: session.user.id, platform: "tiendanube" },
+    });
+    if (savedStore) {
+      await syncTiendanubeOrders(savedStore, session.user.id).catch(() => {});
+    }
 
     return NextResponse.redirect(new URL("/integrations?connected=true", req.url));
   } catch {

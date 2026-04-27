@@ -67,9 +67,19 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleSyncTiendanube = async () => {
+    setActionLoading("tiendanube_sync");
+    try {
+      await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      fetchStatus();
+    } catch (error) {
+      console.error("Error syncing Tiendanube:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDisconnectTiendanube = async () => {
-    if (!confirm("¿Estás seguro de que deseas desconectar Tiendanube?")) return;
-    
     setActionLoading("tiendanube_disconnect");
     try {
       const res = await fetch("/api/integrations/tiendanube/disconnect", { method: "POST" });
@@ -158,29 +168,45 @@ export default function IntegrationsPage() {
                     : "Nunca"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  variant="primary"
+                  size="sm"
                   className="w-full gap-2"
-                  onClick={() => window.location.href = "/tiendanube"}
+                  onClick={handleSyncTiendanube}
+                  disabled={actionLoading === "tiendanube_sync"}
                 >
-                  <ExternalLink className="h-3.5 w-3.5" /> Pedidos
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full gap-2 border-neon-red/20 text-neon-red hover:bg-neon-red/10 hover:border-neon-red/40"
-                  onClick={handleDisconnectTiendanube}
-                  disabled={actionLoading === "tiendanube_disconnect"}
-                >
-                  {actionLoading === "tiendanube_disconnect" ? (
+                  {actionLoading === "tiendanube_sync" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Unlink className="h-3.5 w-3.5" />
+                    <RefreshCcw className="h-3.5 w-3.5" />
                   )}
-                  Desconectar
+                  {actionLoading === "tiendanube_sync" ? "Sincronizando..." : "Sincronizar pedidos"}
                 </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => window.location.href = "/tiendanube"}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Pedidos
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={handleDisconnectTiendanube}
+                    disabled={actionLoading === "tiendanube_disconnect"}
+                  >
+                    {actionLoading === "tiendanube_disconnect" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Unlink className="h-3.5 w-3.5" />
+                    )}
+                    Desconectar
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (

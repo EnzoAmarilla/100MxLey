@@ -4,27 +4,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { StatusCard } from "@/components/dashboard/status-card";
-import { Zap, ShoppingBag, Store, Package, CheckCircle } from "lucide-react";
-
-// Datos simulados basados en los 25 pedidos del seed
-const tnMetrics = {
-  ingresos:   0,
-  mercadopago: 0,
-  gastos:      0,
-  ganancia:    0,
-  changeIngresos:   0,
-  changeMercadopago: 0,
-  changeGastos:      0,
-  changeGanancia:   0,
-};
-
-// Shopify sin pedidos todavía
-const shMetrics = {
-  mlVentas:   0,
-  ingresosNetos: 0,
-  costos:     0,
-  ganancia:   0,
-};
+import { Zap, ShoppingBag, Store, AlertCircle, CheckCircle } from "lucide-react";
 
 function formatARS(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2).replace(".", ",")}M`;
@@ -36,6 +16,14 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [credits, setCredits]   = useState(0);
   const [consumed, setConsumed] = useState(0);
+
+  const [tnConnected, setTnConnected] = useState(false);
+  const [tnStoreName, setTnStoreName] = useState("");
+  const [tnIngresos, setTnIngresos]   = useState(0);
+
+  const [readyToShip, setReadyToShip]   = useState(0);
+  const [inTransit, setInTransit]       = useState(0);
+  const [delivered, setDelivered]       = useState(0);
 
   useEffect(() => {
     fetch("/api/credits")
@@ -49,6 +37,32 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch("/api/integrations/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.tiendanube) {
+          setTnConnected(true);
+          setTnStoreName(data.tiendanube.storeName || "");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!tnConnected) return;
+    fetch("/api/metrics?platform=tiendanube")
+      .then((r) => r.json())
+      .then((data) => {
+        setTnIngresos(data.totalRevenue ?? 0);
+        const sc = data.statusCounts ?? {};
+        setReadyToShip(sc.paid ?? 0);
+        setInTransit(sc.shipped ?? 0);
+        setDelivered(sc.delivered ?? 0);
+      })
+      .catch(() => {});
+  }, [tnConnected]);
 
   return (
     <div className="space-y-8">
@@ -72,15 +86,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Tienda conectada banner (Oculto si no hay datos) */}
-      {tnMetrics.ingresos > 0 && (
+      {/* Banners de estado Tiendanube */}
+      {tnConnected && tnIngresos > 0 && (
         <div className="relative flex items-center gap-3 rounded-xl border border-neon-green/25 bg-neon-green/[0.04] px-4 py-3 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-green/40 to-transparent" />
           <CheckCircle className="h-4 w-4 text-neon-green shrink-0 drop-shadow-[0_0_6px_#00FF88]" />
           <p className="text-xs text-[var(--text-secondary)]">
-            <span className="text-neon-green font-medium">Indumentaria Mxley</span>
+            <span className="text-neon-green font-medium">{tnStoreName || "Tiendanube"}</span>
             {" "}conectada · mostrando datos de los últimos 30 días
           </p>
+        </div>
+      )}
+      {tnConnected && tnIngresos === 0 && (
+        <div className="relative flex items-center justify-between gap-3 rounded-xl border border-neon-yellow/25 bg-neon-yellow/[0.04] px-4 py-3 overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-yellow/40 to-transparent" />
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-4 w-4 text-neon-yellow shrink-0" />
+            <p className="text-xs text-[var(--text-secondary)]">
+              Tiendanube conectada pero sin datos. Sincronizá tus pedidos para ver las métricas.
+            </p>
+          </div>
+          <a href="/integrations" className="shrink-0 text-xs font-medium text-neon-yellow hover:underline">
+            Sincronizar →
+          </a>
         </div>
       )}
 
@@ -92,31 +120,38 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold text-neon-cyan tracking-widest uppercase">Tiendanube</span>
           </div>
           <div className="h-px flex-1 bg-gradient-to-r from-neon-cyan/20 to-transparent" />
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-neon-green/10 border border-neon-green/20">
-            <div className="h-1.5 w-1.5 rounded-full bg-neon-green" />
-            <span className="text-[10px] text-neon-green">Conectada</span>
-          </div>
+          {tnConnected ? (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-neon-green/10 border border-neon-green/20">
+              <div className="h-1.5 w-1.5 rounded-full bg-neon-green" />
+              <span className="text-[10px] text-neon-green">Conectada</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-brand-surface border border-brand-border">
+              <div className="h-1.5 w-1.5 rounded-full bg-[var(--text-secondary)]" />
+              <span className="text-[10px] text-[var(--text-secondary)]">Sin conectar</span>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Ingresos tienda"
-            value={formatARS(tnMetrics.ingresos)}
-            change={tnMetrics.changeIngresos}
+            value={formatARS(tnIngresos)}
+            change={0}
           />
           <MetricCard
             label="MercadoPago (cobros)"
-            value={formatARS(tnMetrics.mercadopago)}
-            change={tnMetrics.changeMercadopago}
+            value="$0"
+            change={0}
           />
           <MetricCard
             label="Gastos (envíos + comisión)"
-            value={formatARS(tnMetrics.gastos)}
-            change={tnMetrics.changeGastos}
+            value="$0"
+            change={0}
           />
           <MetricCard
             label="Ganancia tienda"
-            value={formatARS(tnMetrics.ganancia)}
-            change={tnMetrics.changeGanancia}
+            value="$0"
+            change={0}
           />
         </div>
       </div>
@@ -124,9 +159,9 @@ export default function DashboardPage() {
       {/* ── Pedidos por estado ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Listos para despachar", value: 0, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
-          { label: "En camino",             value: 0, color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
-          { label: "Entregados",            value: 0, color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
+          { label: "Listos para despachar", value: readyToShip, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
+          { label: "En camino",             value: inTransit,   color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
+          { label: "Entregados",            value: delivered,   color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
         ].map((c) => (
           <div key={c.label} className="relative rounded-xl border border-brand-border bg-brand-card p-5">
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${c.glow} to-transparent rounded-t-xl`} />
