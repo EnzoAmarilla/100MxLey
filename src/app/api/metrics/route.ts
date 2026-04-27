@@ -85,9 +85,14 @@ export async function GET(req: Request) {
     .slice(0, 10)
     .map(([sku, quantity]) => ({ sku, quantity }));
 
-  // Status breakdown
+  // Status counts: all orders (no date filter) — represents current pipeline state
+  const allOrdersForStatus = await prisma.order.findMany({
+    where: { storeId: { in: storeIds } },
+    select: { status: true, totalAmount: true, store: { select: { platform: true } } },
+  });
+
   const statusCounts: Record<string, number> = {};
-  orders.forEach((o) => {
+  allOrdersForStatus.forEach((o) => {
     statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
   });
 
