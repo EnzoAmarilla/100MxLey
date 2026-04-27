@@ -1,10 +1,10 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { StatusCard } from "@/components/dashboard/status-card";
-import { Zap, ShoppingBag, Store, AlertCircle, CheckCircle } from "lucide-react";
+import { Zap, ShoppingBag, Store, AlertCircle, CheckCircle, RefreshCcw, Loader2 } from "lucide-react";
 
 function formatARS(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2).replace(".", ",")}M`;
@@ -20,10 +20,12 @@ export default function DashboardPage() {
   const [tnConnected, setTnConnected] = useState(false);
   const [tnStoreName, setTnStoreName] = useState("");
   const [tnIngresos, setTnIngresos]   = useState(0);
+  const [syncing, setSyncing]         = useState(false);
+  const [syncMsg, setSyncMsg]         = useState("");
 
-  const [readyToShip, setReadyToShip]   = useState(0);
-  const [inTransit, setInTransit]       = useState(0);
-  const [delivered, setDelivered]       = useState(0);
+  const [readyToShip, setReadyToShip] = useState(0);
+  const [inTransit, setInTransit]     = useState(0);
+  const [delivered, setDelivered]     = useState(0);
 
   useEffect(() => {
     fetch("/api/credits")
@@ -50,8 +52,7 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!tnConnected) return;
+  const fetchMetrics = useCallback(() => {
     fetch("/api/metrics?platform=tiendanube")
       .then((r) => r.json())
       .then((data) => {
@@ -62,7 +63,31 @@ export default function DashboardPage() {
         setDelivered(sc.delivered ?? 0);
       })
       .catch(() => {});
-  }, [tnConnected]);
+  }, []);
+
+  useEffect(() => {
+    if (!tnConnected) return;
+    fetchMetrics();
+  }, [tnConnected, fetchMetrics]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMsg(`✓ ${data.count} pedidos sincronizados`);
+        fetchMetrics();
+      } else {
+        setSyncMsg("Error al sincronizar. Intentá de nuevo.");
+      }
+    } catch {
+      setSyncMsg("Error al sincronizar. Intentá de nuevo.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -103,12 +128,17 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <AlertCircle className="h-4 w-4 text-neon-yellow shrink-0" />
             <p className="text-xs text-[var(--text-secondary)]">
-              Tiendanube conectada pero sin datos. Sincronizá tus pedidos para ver las métricas.
+              {syncMsg || "Tiendanube conectada pero sin datos. Sincronizá tus pedidos para ver las métricas."}
             </p>
           </div>
-          <a href="/integrations" className="shrink-0 text-xs font-medium text-neon-yellow hover:underline">
-            Sincronizar →
-          </a>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-neon-yellow hover:underline disabled:opacity-50"
+          >
+            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
+            {syncing ? "Sincronizando..." : "Sincronizar ahora"}
+          </button>
         </div>
       )}
 
