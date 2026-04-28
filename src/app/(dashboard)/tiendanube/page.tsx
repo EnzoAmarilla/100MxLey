@@ -86,7 +86,10 @@ export default function TiendanubePage() {
 
   const fetchAllMetrics = useCallback(async () => {
     try {
-      const res  = await fetch("/api/metrics?platform=tiendanube");
+      const params = new URLSearchParams({ platform: "tiendanube" });
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo)   params.set("dateTo", dateTo);
+      const res  = await fetch(`/api/metrics?${params}`);
       const data = await res.json();
       const sc   = data.statusCounts ?? {};
       const allTotal = Object.values(sc as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -99,7 +102,7 @@ export default function TiendanubePage() {
         total:         allTotal,
       });
     } catch {}
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     fetchAllMetrics();

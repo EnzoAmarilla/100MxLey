@@ -85,10 +85,17 @@ export async function GET(req: Request) {
     .slice(0, 10)
     .map(([sku, quantity]) => ({ sku, quantity }));
 
-  // Status counts: all orders (no date filter) — represents current pipeline state
+  // Status counts: respect date filter when provided, otherwise use all orders
+  const statusWhere: any = { storeId: { in: storeIds } };
+  if (dateFrom || dateTo) {
+    statusWhere.createdAt = {};
+    if (dateFrom) statusWhere.createdAt.gte = new Date(dateFrom);
+    if (dateTo)   statusWhere.createdAt.lte = new Date(dateTo + "T23:59:59");
+  }
+
   const allOrdersForStatus = await prisma.order.findMany({
-    where: { storeId: { in: storeIds } },
-    select: { status: true, totalAmount: true, store: { select: { platform: true } } },
+    where: statusWhere,
+    select: { status: true },
   });
 
   const statusCounts: Record<string, number> = {};
