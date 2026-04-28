@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OrdersTable } from "@/components/orders/orders-table";
 import { OrderFilters } from "@/components/orders/order-filters";
-import { 
-  ShoppingBag, 
-  RefreshCcw, 
-  ChevronLeft, 
+import {
+  ShoppingBag,
+  RefreshCcw,
+  ChevronLeft,
   ChevronRight,
   Package,
   Clock,
@@ -53,14 +53,13 @@ function TableSkeleton() {
   );
 }
 
-interface Metrics {
-  total: number;
+interface StatusCounts {
   pending: number;
   paid: number;
   ready_to_ship: number;
   shipped: number;
   delivered: number;
-  revenue: number;
+  total: number;
 }
 
 export default function TiendanubePage() {
@@ -71,8 +70,11 @@ export default function TiendanubePage() {
   const [loading, setLoading]   = useState(true);
   const [syncing, setSyncing]   = useState(false);
   const [exporting, setExporting] = useState(false);
-  
-  const [metrics, setMetrics] = useState<Metrics>({ total: 0, pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, revenue: 0 });
+
+  // Counts from ALL orders (not affected by page/date filter)
+  const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, total: 0 });
+  // Revenue from the current visible page
+  const [viewRevenue, setViewRevenue] = useState(0);
 
   const [status, setStatus]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -80,6 +82,27 @@ export default function TiendanubePage() {
   const [courier, setCourier]   = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
+
+  const fetchAllMetrics = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/metrics?platform=tiendanube");
+      const data = await res.json();
+      const sc   = data.statusCounts ?? {};
+      const allTotal = Object.values(sc as Record<string, number>).reduce((a, b) => a + b, 0);
+      setCounts({
+        pending:       sc.pending       ?? 0,
+        paid:          sc.paid          ?? 0,
+        ready_to_ship: sc.ready_to_ship ?? 0,
+        shipped:       sc.shipped       ?? 0,
+        delivered:     sc.delivered     ?? 0,
+        total:         allTotal,
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchAllMetrics();
+  }, [fetchAllMetrics]);
 
   const fetchOrders = useCallback(async (p = 0) => {
     abortRef.current?.abort();
@@ -95,27 +118,11 @@ export default function TiendanubePage() {
     try {
       const res  = await fetch(`/api/orders?${params}`, { signal: abortRef.current.signal });
       const data = await res.json();
-      setOrders(data.orders ?? []);
+      const rows = data.orders ?? [];
+      setOrders(rows);
       setTotal(data.total ?? 0);
       setPage(p);
-
-      // Calculate simple metrics from visible data for now (or we could have a separate API)
-      if (data.orders) {
-        const m = data.orders.reduce(
-          (acc: Metrics, curr: any) => {
-            acc.total++;
-            if (curr.status === "pending")       acc.pending++;
-            else if (curr.status === "paid")     acc.paid++;
-            else if (curr.status === "ready_to_ship") acc.ready_to_ship++;
-            else if (curr.status === "shipped")  acc.shipped++;
-            else if (curr.status === "delivered") acc.delivered++;
-            acc.revenue += curr.totalAmount || 0;
-            return acc;
-          },
-          { total: 0, pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, revenue: 0 }
-        );
-        setMetrics(m);
-      }
+      setViewRevenue(rows.reduce((s: number, o: any) => s + (o.totalAmount || 0), 0));
     } catch (e: any) {
       if (e.name !== "AbortError") console.error(e);
     } finally {
@@ -135,6 +142,7 @@ export default function TiendanubePage() {
         const data = await res.json();
         alert(`Sincronización completa: ${data.count} pedidos procesados.`);
         fetchOrders(0);
+        fetchAllMetrics();
       } else {
         alert("Error al sincronizar con Tiendanube.");
       }
@@ -188,9 +196,9 @@ export default function TiendanubePage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            variant="ghost" 
-            onClick={handleSync} 
+          <Button
+            variant="ghost"
+            onClick={handleSync}
             disabled={syncing}
             className="gap-2 border-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/5"
           >
@@ -200,7 +208,7 @@ export default function TiendanubePage() {
         </div>
       </div>
 
-      {/* Metrics Cards */}
+      {/* Metrics Cards — always show counts across ALL orders regardless of filter */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
@@ -209,7 +217,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Total</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{total}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{counts.total}</p>
             </div>
           </div>
         </Card>
@@ -220,7 +228,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Por cobrar</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.pending}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{counts.pending}</p>
             </div>
           </div>
         </Card>
@@ -231,7 +239,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Por empaquetar</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.paid}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{counts.paid}</p>
             </div>
           </div>
         </Card>
@@ -242,7 +250,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Por enviar</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.ready_to_ship}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{counts.ready_to_ship}</p>
             </div>
           </div>
         </Card>
@@ -253,7 +261,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Entregados</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{metrics.delivered}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">{counts.delivered}</p>
             </div>
           </div>
         </Card>
@@ -264,7 +272,7 @@ export default function TiendanubePage() {
             </div>
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Ventas (Vista)</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">${metrics.revenue.toLocaleString("es-AR")}</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">${viewRevenue.toLocaleString("es-AR")}</p>
             </div>
           </div>
         </Card>
@@ -277,7 +285,7 @@ export default function TiendanubePage() {
             Mostrando {orders.length} de {total}
           </div>
         </div>
-        
+
         <OrderFilters
           status={status} dateFrom={dateFrom} dateTo={dateTo} courier={courier}
           onStatusChange={setStatus} onDateFromChange={setDateFrom}

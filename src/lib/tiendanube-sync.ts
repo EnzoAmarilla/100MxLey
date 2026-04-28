@@ -9,12 +9,18 @@ type Store = {
 
 function mapStatus(order: any): string {
   if (order.status === "cancelled") return "cancelled";
-  if (order.status === "closed")    return "archived";
+
+  // Delivery/transit checks before closed — closed orders are completed deliveries
   if (order.shipping_status === "delivered") return "delivered";
-  if (order.shipping_status === "shipped")   return "shipped";
-  if (order.payment_status === "paid") {
+  if (order.status === "closed") return "delivered";
+  if (order.shipping_status === "shipped") return "shipped";
+
+  // Payment-based fulfillment pipeline
+  const paidStatuses = ["paid", "partially_paid", "partially_refunded", "authorized"];
+  if (paidStatuses.includes(order.payment_status)) {
     return order.shipping_tracking_number ? "ready_to_ship" : "paid";
   }
+
   return "pending";
 }
 

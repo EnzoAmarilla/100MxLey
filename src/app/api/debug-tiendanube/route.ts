@@ -29,6 +29,35 @@ export async function GET() {
     select: { externalId: true, status: true, totalAmount: true, createdAt: true },
   });
 
+  // Status distribution across all DB orders
+  const allDbOrders = await prisma.order.findMany({
+    where: { storeId: store.id },
+    select: { status: true },
+  });
+  const dbStatusDist: Record<string, number> = {};
+  for (const o of allDbOrders) {
+    dbStatusDist[o.status] = (dbStatusDist[o.status] ?? 0) + 1;
+  }
+
+  // Raw TN payload fields for 3 recent orders (to verify field names)
+  const rawSample = await prisma.order.findMany({
+    where: { storeId: store.id },
+    take: 3,
+    orderBy: { createdAt: "desc" },
+    select: { externalId: true, rawPayload: true },
+  });
+  const rawStatusFields = rawSample.map((o) => {
+    const raw = o.rawPayload as any;
+    return {
+      externalId:             o.externalId,
+      status:                 raw?.status,
+      payment_status:         raw?.payment_status,
+      shipping_status:        raw?.shipping_status,
+      fulfillment_status:     raw?.fulfillment_status,
+      shipping_tracking_number: raw?.shipping_tracking_number,
+    };
+  });
+
   let apiStatus: number | null = null;
   let apiBody: unknown = null;
   let apiError: string | null = null;
@@ -59,7 +88,9 @@ export async function GET() {
     },
     database: {
       totalOrders: dbOrderCount,
+      statusDistribution: dbStatusDist,
       recentOrders: dbOrdersSample,
+      rawStatusFields,
     },
     tiendanubeApi: {
       status: apiStatus,
