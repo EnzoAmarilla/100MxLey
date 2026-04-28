@@ -5,6 +5,7 @@ type Store = {
   id: string;
   storeId: string;
   accessToken: string;
+  lastSync: Date | null;
 };
 
 function mapStatus(order: any): string {
@@ -29,9 +30,14 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
   let page = 1;
   const allOrders: any[] = [];
 
+  // Incremental sync: only fetch orders updated since last sync
+  const updatedSince = store.lastSync
+    ? `&updated_at_min=${encodeURIComponent(store.lastSync.toISOString())}`
+    : "";
+
   while (true) {
     const res = await fetch(
-      `https://api.tiendanube.com/v1/${store.storeId}/orders?per_page=${PER_PAGE}&page=${page}`,
+      `https://api.tiendanube.com/v1/${store.storeId}/orders?per_page=${PER_PAGE}&page=${page}${updatedSince}`,
       {
         headers: {
           Authentication: `bearer ${store.accessToken}`,

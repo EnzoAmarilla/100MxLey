@@ -70,6 +70,7 @@ export default function TiendanubePage() {
   const [loading, setLoading]   = useState(true);
   const [syncing, setSyncing]   = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
 
   // Counts from ALL orders (not affected by page/date filter)
   const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, total: 0 });
@@ -136,17 +137,21 @@ export default function TiendanubePage() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncMsg(null);
     try {
-      const res = await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      const res  = await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
-        alert(`Sincronización completa: ${data.count} pedidos procesados.`);
+        const label = data.incremental ? "actualizados" : "procesados";
+        setSyncMsg({ ok: true, text: `Sincronización completa: ${data.count} pedidos ${label}.` });
         fetchOrders(0);
         fetchAllMetrics();
+        setTimeout(() => setSyncMsg(null), 7000);
       } else {
-        alert("Error al sincronizar con Tiendanube.");
+        setSyncMsg({ ok: false, text: data.error || "Error al sincronizar con Tiendanube." });
       }
     } catch (error) {
+      setSyncMsg({ ok: false, text: "Error de conexión. Intentá de nuevo." });
       console.error("Sync error:", error);
     } finally {
       setSyncing(false);
@@ -203,10 +208,23 @@ export default function TiendanubePage() {
             className="gap-2 border-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/5"
           >
             {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-            Sincronizar
+            {syncing ? "Sincronizando..." : "Sincronizar"}
           </Button>
         </div>
       </div>
+
+      {/* Sync result banner */}
+      {syncMsg && (
+        <div className={[
+          "rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between",
+          syncMsg.ok
+            ? "bg-neon-green/10 border border-neon-green/30 text-neon-green"
+            : "bg-neon-red/10 border border-neon-red/30 text-neon-red",
+        ].join(" ")}>
+          {syncMsg.text}
+          <button onClick={() => setSyncMsg(null)} className="ml-4 opacity-60 hover:opacity-100 text-lg leading-none">×</button>
+        </div>
+      )}
 
       {/* Metrics Cards — always show counts across ALL orders regardless of filter */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

@@ -1,4 +1,6 @@
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // allow up to 5 min for full initial sync
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -17,6 +19,12 @@ export async function POST() {
         userId: session.user.id,
         platform: "tiendanube",
       },
+      select: {
+        id: true,
+        storeId: true,
+        accessToken: true,
+        lastSync: true,
+      },
     });
 
     if (!store) {
@@ -24,7 +32,8 @@ export async function POST() {
     }
 
     const count = await syncTiendanubeOrders(store, session.user.id);
-    return NextResponse.json({ success: true, count });
+    const incremental = store.lastSync !== null;
+    return NextResponse.json({ success: true, count, incremental });
   } catch (error) {
     console.error("[API_TIENDANUBE_SYNC]", error);
     return NextResponse.json({ error: "Error interno de sincronización" }, { status: 500 });
