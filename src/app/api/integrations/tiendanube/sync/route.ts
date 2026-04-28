@@ -34,8 +34,11 @@ export async function POST() {
     const count = await syncTiendanubeOrders(store, session.user.id);
     const incremental = store.lastSync !== null;
     return NextResponse.json({ success: true, count, incremental });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[API_TIENDANUBE_SYNC]", error);
-    return NextResponse.json({ error: "Error interno de sincronización" }, { status: 500 });
+    return NextResponse.json({
+      error: "Error interno de sincronización",
+      detail: error?.message ?? String(error),
+    }, { status: 500 });
   }
 }

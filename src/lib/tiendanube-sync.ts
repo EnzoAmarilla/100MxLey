@@ -31,8 +31,9 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
   const allOrders: any[] = [];
 
   // Incremental sync: only fetch orders updated since last sync
+  // Note: colons are valid unencoded in query string values — do NOT encodeURIComponent here
   const updatedSince = store.lastSync
-    ? `&updated_at_min=${encodeURIComponent(store.lastSync.toISOString())}`
+    ? `&updated_at_min=${store.lastSync.toISOString()}`
     : "";
 
   while (true) {

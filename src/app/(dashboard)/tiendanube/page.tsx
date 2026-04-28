@@ -151,7 +151,8 @@ export default function TiendanubePage() {
         fetchAllMetrics();
         setTimeout(() => setSyncMsg(null), 7000);
       } else {
-        setSyncMsg({ ok: false, text: data.error || "Error al sincronizar con Tiendanube." });
+        const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Error al sincronizar con Tiendanube.");
+        setSyncMsg({ ok: false, text: msg });
       }
     } catch (error) {
       setSyncMsg({ ok: false, text: "Error de conexión. Intentá de nuevo." });
