@@ -12,6 +12,44 @@ function formatARS(value: number): string {
   return `$${value}`;
 }
 
+const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+const PERIODS = [
+  { label: "Hoy",       id: "today" },
+  { label: "7 días",    id: "7d" },
+  { label: "2 semanas", id: "14d" },
+  { label: "1 mes",     id: "30d" },
+  { label: "Todos",     id: "all" },
+] as const;
+
+type PeriodId = (typeof PERIODS)[number]["id"];
+
+function periodToRange(id: PeriodId): { dateFrom: string; dateTo: string } {
+  const today = new Date();
+  if (id === "today") return { dateFrom: fmt(today), dateTo: fmt(today) };
+  if (id === "7d") {
+    const f = new Date(today); f.setDate(f.getDate() - 7);
+    return { dateFrom: fmt(f), dateTo: fmt(today) };
+  }
+  if (id === "14d") {
+    const f = new Date(today); f.setDate(f.getDate() - 14);
+    return { dateFrom: fmt(f), dateTo: fmt(today) };
+  }
+  if (id === "30d") {
+    const f = new Date(today); f.setDate(f.getDate() - 30);
+    return { dateFrom: fmt(f), dateTo: fmt(today) };
+  }
+  return { dateFrom: "", dateTo: "" };
+}
+
+const PERIOD_LABEL: Record<PeriodId, string> = {
+  today: "hoy",
+  "7d":  "los últimos 7 días",
+  "14d": "las últimas 2 semanas",
+  "30d": "los últimos 30 días",
+  all:   "todo el historial",
+};
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [credits, setCredits]   = useState(0);
@@ -28,6 +66,8 @@ export default function DashboardPage() {
   const [readyToShip, setReadyToShip] = useState(0);
   const [inTransit, setInTransit]     = useState(0);
   const [delivered, setDelivered]     = useState(0);
+
+  const [period, setPeriod] = useState<PeriodId>("30d");
 
   useEffect(() => {
     fetch("/api/credits")
@@ -54,8 +94,13 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  const fetchMetrics = useCallback(() => {
-    fetch("/api/metrics?platform=tiendanube")
+  const fetchMetrics = useCallback((p: PeriodId) => {
+    const { dateFrom, dateTo } = periodToRange(p);
+    const params = new URLSearchParams({ platform: "tiendanube" });
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo)   params.set("dateTo", dateTo);
+
+    fetch(`/api/metrics?${params}`)
       .then((r) => r.json())
       .then((data) => {
         setTnIngresos(data.totalRevenue ?? 0);
@@ -71,8 +116,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!tnConnected) return;
-    fetchMetrics();
-  }, [tnConnected, fetchMetrics]);
+    fetchMetrics(period);
+  }, [tnConnected, fetchMetrics, period]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -82,7 +127,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok) {
         setSyncMsg(`✓ ${data.count} pedidos sincronizados`);
-        fetchMetrics();
+        fetchMetrics(period);
       } else {
         setSyncMsg("Error al sincronizar. Intentá de nuevo.");
       }
@@ -115,6 +160,25 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Selector de período */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-[var(--text-secondary)] font-medium mr-1">Período:</span>
+        {PERIODS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPeriod(p.id)}
+            className={[
+              "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+              period === p.id
+                ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/40"
+                : "bg-brand-surface/50 text-[var(--text-secondary)] border border-brand-border hover:border-neon-cyan/30 hover:text-[var(--text-primary)]",
+            ].join(" ")}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Banners de estado Tiendanube */}
       {tnConnected && tnIngresos > 0 && (
         <div className="relative flex items-center gap-3 rounded-xl border border-neon-green/25 bg-neon-green/[0.04] px-4 py-3 overflow-hidden">
@@ -122,7 +186,7 @@ export default function DashboardPage() {
           <CheckCircle className="h-4 w-4 text-neon-green shrink-0 drop-shadow-[0_0_6px_#00FF88]" />
           <p className="text-xs text-[var(--text-secondary)]">
             <span className="text-neon-green font-medium">{tnStoreName || "Tiendanube"}</span>
-            {" "}conectada · mostrando datos de los últimos 30 días
+            {" "}conectada · mostrando datos de <span className="text-neon-green font-medium">{PERIOD_LABEL[period]}</span>
           </p>
         </div>
       )}
