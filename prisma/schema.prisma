@@ -68,16 +68,28 @@ model transaction {
 }
 
 model user {
-  id          String        @id
-  email       String        @unique(map: "User_email_key")
-  name        String
-  password    String
-  credits     Float         @default(20)
-  createdAt   DateTime      @default(now())
-  order       order[]
-  store       store[]
-  transaction transaction[]
-  product     product[]
+  id                 String               @id
+  email              String               @unique(map: "User_email_key")
+  name               String
+  password           String
+  credits            Float                @default(20)
+  createdAt          DateTime             @default(now())
+  order              order[]
+  store              store[]
+  transaction        transaction[]
+  product            product[]
+  passwordResetToken passwordResetToken[]
+}
+
+model passwordResetToken {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "PasswordResetToken_userId_fkey")
+
+  @@index([userId], map: "PasswordResetToken_userId_fkey")
 }
 
 model product {
