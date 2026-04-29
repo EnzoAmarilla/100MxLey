@@ -28,7 +28,7 @@ function TableSkeleton() {
       <table className="w-full">
         <thead>
           <tr className="border-b border-brand-border bg-brand-surface">
-            {[10, 20, 28, 32, 16, 14, 18].map((w, i) => (
+            {[10, 20, 20, 28, 16, 14, 20, 20, 10].map((w, i) => (
               <th key={i} className="px-5 py-3">
                 <div className={`h-3 w-${w} rounded bg-brand-bg animate-pulse`} />
               </th>
@@ -40,11 +40,13 @@ function TableSkeleton() {
             <tr key={i} className="border-b border-brand-border">
               <td className="px-5 py-3.5"><div className="h-3 w-4 rounded bg-brand-surface animate-pulse" /></td>
               <td className="px-5 py-3.5"><div className="h-3 w-20 rounded bg-brand-surface animate-pulse" /></td>
-              <td className="px-5 py-3.5"><div className="h-3 w-32 rounded bg-brand-surface animate-pulse" /></td>
-              <td className="px-5 py-3.5"><div className="h-3 w-24 rounded bg-brand-surface animate-pulse" /></td>
-              <td className="px-5 py-3.5"><div className="h-3 w-16 rounded bg-brand-surface animate-pulse" /></td>
-              <td className="px-5 py-3.5"><div className="h-5 w-16 rounded bg-brand-surface animate-pulse" /></td>
               <td className="px-5 py-3.5"><div className="h-3 w-20 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-3 w-32 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-3 w-16 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-3 w-12 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-5 w-16 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-5 w-20 rounded bg-brand-surface animate-pulse" /></td>
+              <td className="px-5 py-3.5"><div className="h-3 w-8 rounded bg-brand-surface animate-pulse" /></td>
             </tr>
           ))}
         </tbody>
@@ -72,10 +74,8 @@ export default function TiendanubePage() {
   const [exporting, setExporting] = useState(false);
   const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Counts from ALL orders (not affected by page/date filter)
   const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, total: 0 });
-  // Revenue from the current visible page
-  const [viewRevenue, setViewRevenue] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
 
   const [status, setStatus]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -83,30 +83,6 @@ export default function TiendanubePage() {
   const [courier, setCourier]   = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
-
-  const fetchAllMetrics = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({ platform: "tiendanube" });
-      if (dateFrom) params.set("dateFrom", dateFrom);
-      if (dateTo)   params.set("dateTo", dateTo);
-      const res  = await fetch(`/api/metrics?${params}`);
-      const data = await res.json();
-      const sc   = data.statusCounts ?? {};
-      const allTotal = Object.values(sc as Record<string, number>).reduce((a, b) => a + b, 0);
-      setCounts({
-        pending:       sc.pending       ?? 0,
-        paid:          sc.paid          ?? 0,
-        ready_to_ship: sc.ready_to_ship ?? 0,
-        shipped:       sc.shipped       ?? 0,
-        delivered:     sc.delivered     ?? 0,
-        total:         allTotal,
-      });
-    } catch {}
-  }, [dateFrom, dateTo]);
-
-  useEffect(() => {
-    fetchAllMetrics();
-  }, [fetchAllMetrics]);
 
   const fetchOrders = useCallback(async (p = 0) => {
     abortRef.current?.abort();
@@ -126,7 +102,17 @@ export default function TiendanubePage() {
       setOrders(rows);
       setTotal(data.total ?? 0);
       setPage(p);
-      setViewRevenue(rows.reduce((s: number, o: any) => s + (o.totalAmount || 0), 0));
+      setTotalRevenue(data.totalRevenue ?? 0);
+      const sc = data.statusCounts ?? {};
+      const allTotal = Object.values(sc as Record<string, number>).reduce((a: number, b) => a + (b as number), 0);
+      setCounts({
+        pending:       sc.pending       ?? 0,
+        paid:          sc.paid          ?? 0,
+        ready_to_ship: sc.ready_to_ship ?? 0,
+        shipped:       sc.shipped       ?? 0,
+        delivered:     sc.delivered     ?? 0,
+        total:         allTotal,
+      });
     } catch (e: any) {
       if (e.name !== "AbortError") console.error(e);
     } finally {
@@ -148,7 +134,6 @@ export default function TiendanubePage() {
         const label = data.incremental ? "actualizados" : "procesados";
         setSyncMsg({ ok: true, text: `Sincronización completa: ${data.count} pedidos ${label}.` });
         fetchOrders(0);
-        fetchAllMetrics();
         setTimeout(() => setSyncMsg(null), 7000);
       } else {
         const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Error al sincronizar con Tiendanube.");
@@ -293,8 +278,8 @@ export default function TiendanubePage() {
               <CreditCard className="h-5 w-5 text-neon-cyan" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">Ventas (Vista)</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">${viewRevenue.toLocaleString("es-AR")}</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Ventas (Período)</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">${totalRevenue.toLocaleString("es-AR")}</p>
             </div>
           </div>
         </Card>

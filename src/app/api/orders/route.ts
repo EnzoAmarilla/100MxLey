@@ -29,12 +29,12 @@ export async function GET(req: Request) {
 
   if (dateFrom || dateTo) {
     where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo)   where.createdAt.lte = new Date(dateTo + "T23:59:59");
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom + "T00:00:00-03:00");
+    if (dateTo)   where.createdAt.lte = new Date(dateTo   + "T23:59:59-03:00");
   }
 
-  // Count + fetch in parallel
-  const [total, orders] = await Promise.all([
+  // Count + fetch + status breakdown + total revenue in parallel
+  const [total, orders, statusGroups, revenueAgg] = await Promise.all([
     prisma.order.count({ where }),
     prisma.order.findMany({
       where,
@@ -45,11 +45,32 @@ export async function GET(req: Request) {
         id: true, externalId: true, buyerName: true, buyerEmail: true,
         address: true, products: true, courier: true, trackingCode: true,
         status: true, exported: true, notified: true,
-        totalAmount: true, createdAt: true,
+        totalAmount: true, createdAt: true, rawPayload: true,
         store: { select: { platform: true, storeName: true } },
       },
     }),
+    prisma.order.groupBy({ by: ["status"], where, _count: { status: true } }),
+    prisma.order.aggregate({ where, _sum: { totalAmount: true } }),
   ]);
 
-  return NextResponse.json({ orders, total, page, pageSize: PAGE_SIZE });
+  const statusCounts = statusGroups.reduce<Record<string, number>>((acc, g) => {
+    acc[g.status] = g._count.status;
+    return acc;
+  }, {});
+
+  const processedOrders = orders.map(({ rawPayload, ...o }) => {
+    const raw = rawPayload as any;
+    return {
+      ...o,
+      paymentLabel:       raw?.gateway_name ?? raw?.gateway ?? null,
+      shippingOptionName: raw?.shipping_option?.name ?? null,
+      buyerPhone:         raw?.customer?.phone ?? null,
+    };
+  });
+
+  return NextResponse.json({
+    orders: processedOrders, total, page, pageSize: PAGE_SIZE,
+    statusCounts,
+    totalRevenue: revenueAgg._sum.totalAmount ?? 0,
+  });
 }

@@ -24,8 +24,6 @@ export function OrderDetailModal({ order, isOpen, onClose }: OrderDetailModalPro
 
   const address = typeof order.address === "string" ? JSON.parse(order.address) : order.address;
   const products = typeof order.products === "string" ? JSON.parse(order.products) : order.products;
-  const raw = order.rawPayload || {};
-
   const statusBadge = (status: string) => {
     switch (status) {
       case "paid": return <Badge variant="green">Pagado</Badge>;
@@ -67,9 +65,9 @@ export function OrderDetailModal({ order, isOpen, onClose }: OrderDetailModalPro
               <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
                 <Mail className="h-3.5 w-3.5" /> {order.buyerEmail || "Sin email"}
               </div>
-              {raw.customer?.phone && (
+              {order.buyerPhone && (
                 <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
-                  <Phone className="h-3.5 w-3.5" /> {raw.customer.phone}
+                  <Phone className="h-3.5 w-3.5" /> {order.buyerPhone}
                 </div>
               )}
             </div>

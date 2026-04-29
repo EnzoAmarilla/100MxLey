@@ -15,7 +15,8 @@ interface OrderFiltersProps {
   onCourierChange: (v: string) => void;
 }
 
-const fmt = (d: Date) => d.toISOString().split("T")[0];
+const pad = (n: number) => String(n).padStart(2, "0");
+const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const PRESETS = [
   { label: "Hoy",       id: "today" },
