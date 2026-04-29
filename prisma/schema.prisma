@@ -75,4 +75,23 @@ model user {
   order       order[]
   store       store[]
   transaction transaction[]
+  product     product[]
+}
+
+model product {
+  id        String   @id
+  userId    String
+  sku       String
+  name      String
+  category  String
+  stock     Int      @default(0)
+  minStock  Int      @default(0)
+  costPrice Float    @default(0)
+  salePrice Float    @default(0)
+  soldMonth Int      @default(0)
+  createdAt DateTime @default(now())
+  user      user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Product_userId_fkey")
+
+  @@unique([userId, sku], map: "Product_userId_sku_key")
+  @@index([userId], map: "Product_userId_fkey")
 }
