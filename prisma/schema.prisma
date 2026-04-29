@@ -93,6 +93,7 @@ model product {
   minStock   Int      @default(0)
   costPrice  Float    @default(0)
   salePrice  Float    @default(0)
+  promoPrice Float?
   soldMonth  Int      @default(0)
   createdAt  DateTime @default(now())
   user       user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Product_userId_fkey")

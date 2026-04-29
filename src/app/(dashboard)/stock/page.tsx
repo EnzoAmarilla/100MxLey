@@ -35,6 +35,7 @@ interface Product {
   minStock: number;
   costPrice: number;
   salePrice: number;
+  promoPrice: number | null;
   soldMonth: number;
 }
 
@@ -44,7 +45,7 @@ type SortKey = "name" | "sku" | "stock" | "salePrice" | "soldMonth";
 
 const emptyForm = {
   sku: "", name: "", category: "Camisetas",
-  stock: "", minStock: "", costPrice: "", salePrice: "", soldMonth: "0",
+  stock: "", minStock: "", costPrice: "", salePrice: "", promoPrice: "", soldMonth: "0",
 };
 
 function formatARS(value: number): string {
@@ -177,14 +178,15 @@ export default function StockPage() {
   function openEdit(p: Product) {
     setEditingProduct(p);
     setForm({
-      sku:       p.sku,
-      name:      p.name,
-      category:  p.category,
-      stock:     String(p.stock),
-      minStock:  String(p.minStock),
-      costPrice: String(p.costPrice),
-      salePrice: String(p.salePrice),
-      soldMonth: String(p.soldMonth),
+      sku:        p.sku,
+      name:       p.name,
+      category:   p.category,
+      stock:      String(p.stock),
+      minStock:   String(p.minStock),
+      costPrice:  String(p.costPrice),
+      salePrice:  String(p.salePrice),
+      promoPrice: p.promoPrice != null ? String(p.promoPrice) : "",
+      soldMonth:  String(p.soldMonth),
     });
     setFormErrors({});
     setShowModal(true);
@@ -220,14 +222,15 @@ export default function StockPage() {
     setSaving(true);
     try {
       const payload = {
-        sku:       form.sku,
-        name:      form.name,
-        category:  form.category,
-        stock:     Number(form.stock),
-        minStock:  Number(form.minStock),
-        costPrice: Number(form.costPrice),
-        salePrice: Number(form.salePrice),
-        soldMonth: Number(form.soldMonth),
+        sku:        form.sku,
+        name:       form.name,
+        category:   form.category,
+        stock:      Number(form.stock),
+        minStock:   Number(form.minStock),
+        costPrice:  Number(form.costPrice),
+        salePrice:  Number(form.salePrice),
+        promoPrice: form.promoPrice ? Number(form.promoPrice) : null,
+        soldMonth:  Number(form.soldMonth),
       };
       let res: Response;
       if (editingProduct) {
@@ -482,8 +485,9 @@ export default function StockPage() {
                   const barColor =
                     p.stock === 0       ? "bg-neon-red"    :
                     p.stock <= p.minStock ? "bg-neon-yellow" : "bg-neon-green";
-                  const margin = p.salePrice > 0
-                    ? ((p.salePrice - p.costPrice) / p.salePrice * 100)
+                  const effectivePrice = p.promoPrice ?? p.salePrice;
+                  const margin = effectivePrice > 0
+                    ? ((effectivePrice - p.costPrice) / effectivePrice * 100)
                     : 0;
 
                   return (
@@ -511,10 +515,24 @@ export default function StockPage() {
                       <td className="px-5 py-3.5 font-mono text-[var(--text-secondary)] text-xs">{p.minStock}</td>
                       <td className="px-5 py-3.5 font-mono text-[var(--text-secondary)] text-xs">${p.costPrice.toLocaleString("es-AR")}</td>
                       <td className="px-5 py-3.5">
-                        <div>
-                          <span className="font-mono font-bold text-[var(--text-primary)] text-xs">${p.salePrice.toLocaleString("es-AR")}</span>
-                          {margin > 0 && (
-                            <span className="ml-1.5 text-[10px] text-neon-green font-mono">{margin.toFixed(0)}%</span>
+                        <div className="space-y-0.5">
+                          {p.promoPrice ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[var(--text-secondary)] text-xs line-through">${p.salePrice.toLocaleString("es-AR")}</span>
+                                {margin > 0 && (
+                                  <span className="text-[10px] text-neon-green font-mono">{margin.toFixed(0)}%</span>
+                                )}
+                              </div>
+                              <span className="font-mono font-bold text-neon-cyan text-xs">${p.promoPrice.toLocaleString("es-AR")}</span>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-[var(--text-primary)] text-xs">${p.salePrice.toLocaleString("es-AR")}</span>
+                              {margin > 0 && (
+                                <span className="text-[10px] text-neon-green font-mono">{margin.toFixed(0)}%</span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -607,6 +625,8 @@ export default function StockPage() {
                 <Field label="Costo unitario ($)" field="costPrice" type="number" placeholder="3200" />
                 <Field label="Precio de venta ($)" field="salePrice" type="number" placeholder="8500" />
               </div>
+
+              <Field label="Precio promocional ($) — opcional" field="promoPrice" type="number" placeholder="Sin promoción" />
 
               <Field label="Vendidos este mes" field="soldMonth" type="number" placeholder="0" />
 

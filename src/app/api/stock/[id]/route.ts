@@ -9,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!session?.user?.id) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json();
-  const { sku, name, category, stock, minStock, costPrice, salePrice, soldMonth } = body;
+  const { sku, name, category, stock, minStock, costPrice, salePrice, promoPrice, soldMonth } = body;
 
   const existing = await prisma.product.findFirst({
     where: { id: params.id, userId: session.user.id },
@@ -33,9 +33,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       category:  category?.trim()    ?? existing.category,
       stock:     stock     !== undefined ? Number(stock)     : existing.stock,
       minStock:  minStock  !== undefined ? Number(minStock)  : existing.minStock,
-      costPrice: costPrice !== undefined ? Number(costPrice) : existing.costPrice,
-      salePrice: salePrice !== undefined ? Number(salePrice) : existing.salePrice,
-      soldMonth: soldMonth !== undefined ? Number(soldMonth) : existing.soldMonth,
+      costPrice:  costPrice  !== undefined ? Number(costPrice)  : existing.costPrice,
+      salePrice:  salePrice  !== undefined ? Number(salePrice)  : existing.salePrice,
+      promoPrice: promoPrice !== undefined ? (Number(promoPrice) || null) : existing.promoPrice,
+      soldMonth:  soldMonth  !== undefined ? Number(soldMonth)  : existing.soldMonth,
     },
   });
 

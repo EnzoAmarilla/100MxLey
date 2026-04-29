@@ -78,10 +78,11 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
       const variantLabel = (variant.values ?? []).map((v: any) => tnName(v)).filter(Boolean).join(" / ");
       const displayName  = variantLabel ? `${productName} - ${variantLabel}` : productName;
 
-      const stock     = variant.stock         ?? 0;
-      const salePrice = parseFloat(variant.price ?? "0") || 0;
-      const costPrice = parseFloat(variant.cost  ?? "0") || 0;
-      const soldMonth = soldBySku[effectiveSku] ?? 0;
+      const stock      = variant.stock                    ?? 0;
+      const salePrice  = parseFloat(variant.price            ?? "0") || 0;
+      const costPrice  = parseFloat(variant.cost             ?? "0") || 0;
+      const promoPrice = parseFloat(variant.promotional_price ?? "0") || null;
+      const soldMonth  = soldBySku[effectiveSku] ?? 0;
 
       try {
         await prisma.product.upsert({
@@ -89,14 +90,15 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
             storeId_externalId: { storeId: store.id, externalId },
           },
           update: {
-            sku:       effectiveSku,
-            name:      displayName,
+            sku:        effectiveSku,
+            name:       displayName,
             category,
             stock,
             salePrice,
+            promoPrice,
             costPrice,
             soldMonth,
-            platform:  "tiendanube",
+            platform:   "tiendanube",
           },
           create: {
             id:         randomUUID(),
@@ -110,6 +112,7 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
             stock,
             minStock:   0,
             salePrice,
+            promoPrice,
             costPrice,
             soldMonth,
           },
@@ -119,7 +122,7 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
         if (e.code === "P2002") {
           await prisma.product.updateMany({
             where: { userId, sku: effectiveSku },
-            data: { storeId: store.id, externalId, platform: "tiendanube", stock, salePrice, costPrice, soldMonth },
+            data: { storeId: store.id, externalId, platform: "tiendanube", stock, salePrice, promoPrice, costPrice, soldMonth },
           });
         } else {
           console.error("[TN_PRODUCTS_UPSERT_ERROR]", externalId, e?.message);
