@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Filter,
+  ShoppingBag,
+  ExternalLink,
 } from "lucide-react";
 
 interface Product {
@@ -28,6 +30,8 @@ interface Product {
   name: string;
   category: string;
   stock: number;
+  platform: string | null;
+  externalId: string | null;
   minStock: number;
   costPrice: number;
   salePrice: number;
@@ -92,6 +96,9 @@ export default function StockPage() {
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [deleting, setDeleting]           = useState(false);
 
+  const [syncing, setSyncing]   = useState(false);
+  const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -106,6 +113,26 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const handleTNSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res  = await fetch("/api/integrations/tiendanube/sync-products", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMsg({ ok: true, text: `Sincronización completa: ${data.count} variantes importadas desde Tiendanube.` });
+        fetchProducts();
+        setTimeout(() => setSyncMsg(null), 8000);
+      } else {
+        setSyncMsg({ ok: false, text: data.detail ? `${data.error}: ${data.detail}` : (data.error || "Error al sincronizar") });
+      }
+    } catch {
+      setSyncMsg({ ok: false, text: "Error de conexión. Intentá de nuevo." });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // ── Computed metrics ──────────────────────────────────────────────
   const totalValue  = products.reduce((s, p) => s + p.stock * p.costPrice, 0);
@@ -291,9 +318,19 @@ export default function StockPage() {
           <p className="text-xs text-[var(--text-secondary)] mt-1 tracking-widest uppercase">Inventario · Indumentaria Mxley</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleTNSync}
+            disabled={syncing || loading}
+            className="gap-2 border-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/5"
+          >
+            {syncing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShoppingBag className="h-3.5 w-3.5" />}
+            {syncing ? "Sincronizando..." : "Sync Tiendanube"}
+          </Button>
           <Button variant="secondary" size="sm" onClick={fetchProducts} disabled={loading} className="gap-2">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Sincronizar
+            Refrescar
           </Button>
           <Button size="sm" onClick={openAdd} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
@@ -301,6 +338,19 @@ export default function StockPage() {
           </Button>
         </div>
       </div>
+
+      {/* Sync result banner */}
+      {syncMsg && (
+        <div className={[
+          "rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between",
+          syncMsg.ok
+            ? "bg-neon-green/10 border border-neon-green/30 text-neon-green"
+            : "bg-neon-red/10 border border-neon-red/30 text-neon-red",
+        ].join(" ")}>
+          {syncMsg.text}
+          <button onClick={() => setSyncMsg(null)} className="ml-4 opacity-60 hover:opacity-100 text-lg leading-none">×</button>
+        </div>
+      )}
 
       {/* Stock-bajo alert */}
       {!loading && lowStock > 0 && (
@@ -438,7 +488,16 @@ export default function StockPage() {
 
                   return (
                     <tr key={p.id} className="border-b border-brand-border hover:bg-brand-surface/60 transition-colors duration-150 group">
-                      <td className="px-5 py-3.5 font-mono text-neon-cyan/80 text-xs">{p.sku}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          {p.platform === "tiendanube" && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 leading-none">
+                              <ShoppingBag className="h-2.5 w-2.5" /> TN
+                            </span>
+                          )}
+                          <span className="font-mono text-neon-cyan/80 text-xs">{p.sku}</span>
+                        </div>
+                      </td>
                       <td className="px-5 py-3.5 text-[var(--text-primary)] text-xs font-medium whitespace-nowrap max-w-[200px] truncate">{p.name}</td>
                       <td className="px-5 py-3.5 text-[var(--text-secondary)] text-xs">{p.category}</td>
                       <td className="px-5 py-3.5">
@@ -475,6 +534,17 @@ export default function StockPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          {p.platform === "tiendanube" && p.externalId && (
+                            <a
+                              href={`https://www.tiendanube.com/admin/products/${p.externalId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-brand-border bg-brand-surface text-[var(--text-secondary)] hover:text-neon-cyan hover:border-neon-cyan/40 transition-colors"
+                              title="Ver en Tiendanube"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                           <Button
                             variant="ghost" size="sm"
                             className="h-7 w-7 p-0 text-neon-red/70 hover:text-neon-red hover:bg-neon-red/10"
