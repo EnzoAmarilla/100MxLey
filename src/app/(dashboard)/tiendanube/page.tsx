@@ -17,6 +17,7 @@ import {
   CreditCard,
   Truck,
   TrendingUp,
+  Ban,
 } from "lucide-react";
 
 // Skeleton row for table loading
@@ -63,6 +64,7 @@ interface StatusCounts {
   ready_to_ship: number;
   shipped: number;
   delivered: number;
+  cancelled: number;
   total: number;
 }
 
@@ -76,7 +78,7 @@ export default function TiendanubePage() {
   const [exporting, setExporting] = useState(false);
   const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
 
-  const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, total: 0 });
+  const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, cancelled: 0, total: 0 });
   const [totalRevenue, setTotalRevenue]   = useState(0);
   const [totalShipping, setTotalShipping] = useState(0);
   const [netRevenue, setNetRevenue]       = useState(0);
@@ -117,6 +119,7 @@ export default function TiendanubePage() {
         ready_to_ship: sc.ready_to_ship ?? 0,
         shipped:       sc.shipped       ?? 0,
         delivered:     sc.delivered     ?? 0,
+        cancelled:     sc.cancelled     ?? 0,
         total:         allTotal,
       });
     } catch (e: any) {
@@ -222,7 +225,7 @@ export default function TiendanubePage() {
       )}
 
       {/* Estado de pedidos */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-neon-cyan/10">
@@ -275,6 +278,17 @@ export default function TiendanubePage() {
             <div>
               <p className="text-xs text-[var(--text-secondary)] font-medium">Entregados</p>
               <p className="text-xl font-bold text-[var(--text-primary)]">{counts.delivered}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-brand-surface">
+              <Ban className="h-5 w-5 text-[var(--text-secondary)]" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Cancelados</p>
+              <p className="text-xl font-bold text-[var(--text-secondary)]">{counts.cancelled}</p>
             </div>
           </div>
         </Card>

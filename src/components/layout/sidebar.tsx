@@ -16,8 +16,37 @@ import {
   ChevronRight,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavProgress } from "@/components/layout/nav-progress";
+import { TrendingUp } from "lucide-react";
+
+function DolarBlue() {
+  const [venta, setVenta] = useState<number | null>(null);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("https://dolarapi.com/v1/dolares/blue")
+        .then((r) => r.json())
+        .then((d) => setVenta(d.venta ?? null))
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (venta === null) return null;
+
+  return (
+    <div className="mx-3 mb-3 px-3 py-2.5 rounded-lg bg-brand-surface border border-brand-border flex items-center gap-2">
+      <TrendingUp className="h-3.5 w-3.5 text-neon-green shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider leading-none mb-0.5">Dólar Blue</p>
+        <p className="text-sm font-bold text-neon-green leading-none">${venta.toLocaleString("es-AR")} ARS</p>
+      </div>
+      <div className="h-1.5 w-1.5 rounded-full bg-neon-green animate-pulse shrink-0" />
+    </div>
+  );
+}
 
 const navItems = [
   { label: "Inicio", href: "/dashboard", icon: LayoutDashboard },
@@ -136,7 +165,9 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="relative border-t border-brand-border px-3 py-4">
+      <div className="relative border-t border-brand-border pt-3">
+        <DolarBlue />
+        <div className="px-3 pb-4">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-neon-red/10 hover:text-neon-red border border-transparent hover:border-neon-red/20 transition-all duration-200"
@@ -144,6 +175,7 @@ export function Sidebar() {
           <LogOut className="h-4 w-4" />
           <span>Cerrar sesión</span>
         </button>
+        </div>
       </div>
     </aside>
   );

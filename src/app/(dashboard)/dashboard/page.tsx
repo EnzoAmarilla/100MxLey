@@ -7,9 +7,7 @@ import { StatusCard } from "@/components/dashboard/status-card";
 import { Zap, ShoppingBag, Store, AlertCircle, CheckCircle, RefreshCcw, Loader2 } from "lucide-react";
 
 function formatARS(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2).replace(".", ",")}M`;
-  if (value >= 1_000)     return `$${Math.round(value / 1_000).toLocaleString("es-AR")}K`;
-  return `$${value}`;
+  return "$" + Math.round(value).toLocaleString("es-AR");
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -70,6 +68,7 @@ export default function DashboardPage() {
   const [readyToShip, setReadyToShip] = useState(0);
   const [inTransit, setInTransit]     = useState(0);
   const [delivered, setDelivered]     = useState(0);
+  const [cancelled, setCancelled]     = useState(0);
 
   const [period, setPeriod] = useState<PeriodId>("today");
 
@@ -118,6 +117,7 @@ export default function DashboardPage() {
         setReadyToShip(sc.ready_to_ship ?? 0);
         setInTransit(sc.shipped      ?? 0);
         setDelivered(sc.delivered    ?? 0);
+        setCancelled(sc.cancelled    ?? 0);
       })
       .catch(() => {});
   }, []);
@@ -263,13 +263,14 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Pedidos por estado ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
           { label: "Por cobrar",    value: toPay,       color: "text-neon-red",    glow: "via-neon-red/30",    dot: "bg-neon-red"    },
           { label: "Por empaquetar",value: toPack,      color: "text-neon-purple", glow: "via-neon-purple/30", dot: "bg-neon-purple" },
           { label: "Por enviar",    value: readyToShip, color: "text-neon-yellow", glow: "via-neon-yellow/30", dot: "bg-neon-yellow" },
           { label: "En camino",     value: inTransit,   color: "text-neon-cyan",   glow: "via-neon-cyan/30",   dot: "bg-neon-cyan"   },
           { label: "Entregados",    value: delivered,   color: "text-neon-green",  glow: "via-neon-green/30",  dot: "bg-neon-green"  },
+          { label: "Cancelados",    value: cancelled,   color: "text-[var(--text-secondary)]", glow: "via-brand-border", dot: "bg-[var(--text-secondary)]" },
         ].map((c) => (
           <div key={c.label} className="relative rounded-xl border border-brand-border bg-brand-card p-5">
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${c.glow} to-transparent rounded-t-xl`} />
