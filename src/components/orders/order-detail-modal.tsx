@@ -123,7 +123,25 @@ export function OrderDetailModal({ order, isOpen, onClose }: OrderDetailModalPro
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-brand-surface/20">
+              <tfoot className="bg-brand-surface/20 divide-y divide-brand-border">
+                {order.shippingCost > 0 && (
+                  <>
+                    <tr>
+                      <td colSpan={2} className="px-4 py-2 text-right text-sm text-[var(--text-secondary)]">Subtotal productos</td>
+                      <td className="px-4 py-2 text-right text-sm text-[var(--text-primary)]">
+                        ${(order.totalAmount - order.shippingCost).toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={2} className="px-4 py-2 text-right text-sm text-[var(--text-secondary)]">
+                        Envío{order.shippingOptionName ? ` — ${order.shippingOptionName}` : ""}
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm text-[var(--text-primary)]">
+                        ${order.shippingCost.toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                  </>
+                )}
                 <tr>
                   <td colSpan={2} className="px-4 py-3 text-right font-bold text-[var(--text-secondary)]">Total</td>
                   <td className="px-4 py-3 text-right font-bold text-neon-cyan text-lg">

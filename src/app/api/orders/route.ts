@@ -45,12 +45,12 @@ export async function GET(req: Request) {
         id: true, externalId: true, buyerName: true, buyerEmail: true,
         address: true, products: true, courier: true, trackingCode: true,
         status: true, exported: true, notified: true,
-        totalAmount: true, createdAt: true, rawPayload: true,
+        totalAmount: true, shippingCost: true, createdAt: true, rawPayload: true,
         store: { select: { platform: true, storeName: true } },
       },
     }),
     prisma.order.groupBy({ by: ["status"], where, _count: { status: true } }),
-    prisma.order.aggregate({ where, _sum: { totalAmount: true } }),
+    prisma.order.aggregate({ where, _sum: { totalAmount: true, shippingCost: true } }),
   ]);
 
   const statusCounts = statusGroups.reduce<Record<string, number>>((acc, g) => {
@@ -68,9 +68,14 @@ export async function GET(req: Request) {
     };
   });
 
+  const totalRevenue  = revenueAgg._sum.totalAmount  ?? 0;
+  const totalShipping = revenueAgg._sum.shippingCost  ?? 0;
+
   return NextResponse.json({
     orders: processedOrders, total, page, pageSize: PAGE_SIZE,
     statusCounts,
-    totalRevenue: revenueAgg._sum.totalAmount ?? 0,
+    totalRevenue,
+    totalShipping,
+    netRevenue: totalRevenue - totalShipping,
   });
 }

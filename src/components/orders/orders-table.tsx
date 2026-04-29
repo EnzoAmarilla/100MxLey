@@ -22,6 +22,7 @@ interface Order {
   status: string;
   exported: boolean;
   totalAmount: number;
+  shippingCost: number;
   createdAt: string;
   paymentLabel: string | null;
   shippingOptionName: string | null;

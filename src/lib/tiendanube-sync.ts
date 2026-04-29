@@ -88,9 +88,9 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
           price:    parseFloat(p.price),
         }));
 
-        const trackingCode = tnOrder.shipping_tracking_number || null;
-
-        const orderedAt = tnOrder.created_at ? new Date(tnOrder.created_at) : undefined;
+        const trackingCode   = tnOrder.shipping_tracking_number || null;
+        const shippingCost   = parseFloat(tnOrder.shipping_cost_customer ?? 0);
+        const orderedAt      = tnOrder.created_at ? new Date(tnOrder.created_at) : undefined;
 
         return prisma.order.upsert({
           where: {
@@ -106,6 +106,7 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
             address:      JSON.stringify(address),
             products:     JSON.stringify(products),
             totalAmount:  parseFloat(tnOrder.total),
+            shippingCost,
             trackingCode,
             rawPayload:   tnOrder,
             ...(orderedAt && { createdAt: orderedAt }),
@@ -121,6 +122,7 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
             products:     JSON.stringify(products),
             status,
             totalAmount:  parseFloat(tnOrder.total),
+            shippingCost,
             trackingCode,
             rawPayload:   tnOrder,
             ...(orderedAt && { createdAt: orderedAt }),

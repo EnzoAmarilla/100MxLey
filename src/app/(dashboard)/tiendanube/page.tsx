@@ -14,7 +14,9 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
-  CreditCard
+  CreditCard,
+  Truck,
+  TrendingUp,
 } from "lucide-react";
 
 // Skeleton row for table loading
@@ -75,7 +77,9 @@ export default function TiendanubePage() {
   const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
 
   const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, total: 0 });
-  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalRevenue, setTotalRevenue]   = useState(0);
+  const [totalShipping, setTotalShipping] = useState(0);
+  const [netRevenue, setNetRevenue]       = useState(0);
 
   const [status, setStatus]     = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -102,7 +106,9 @@ export default function TiendanubePage() {
       setOrders(rows);
       setTotal(data.total ?? 0);
       setPage(p);
-      setTotalRevenue(data.totalRevenue ?? 0);
+      setTotalRevenue(data.totalRevenue   ?? 0);
+      setTotalShipping(data.totalShipping ?? 0);
+      setNetRevenue(data.netRevenue       ?? 0);
       const sc = data.statusCounts ?? {};
       const allTotal = Object.values(sc as Record<string, number>).reduce((a: number, b) => a + (b as number), 0);
       setCounts({
@@ -215,8 +221,8 @@ export default function TiendanubePage() {
         </div>
       )}
 
-      {/* Metrics Cards — always show counts across ALL orders regardless of filter */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Estado de pedidos */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-neon-cyan/10">
@@ -272,14 +278,40 @@ export default function TiendanubePage() {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Resumen financiero */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card glow="none" className="p-4 bg-brand-surface/40">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-neon-cyan/10">
               <CreditCard className="h-5 w-5 text-neon-cyan" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">Ventas (Período)</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Facturación (Período)</p>
               <p className="text-xl font-bold text-[var(--text-primary)]">${totalRevenue.toLocaleString("es-AR")}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-red/10">
+              <Truck className="h-5 w-5 text-neon-red" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Gastos de Envío</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">${totalShipping.toLocaleString("es-AR")}</p>
+            </div>
+          </div>
+        </Card>
+        <Card glow="none" className="p-4 bg-brand-surface/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-neon-green/10">
+              <TrendingUp className="h-5 w-5 text-neon-green" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Ganancia Neta</p>
+              <p className="text-xl font-bold text-neon-green">${netRevenue.toLocaleString("es-AR")}</p>
             </div>
           </div>
         </Card>
