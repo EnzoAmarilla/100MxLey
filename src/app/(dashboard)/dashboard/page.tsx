@@ -12,7 +12,8 @@ function formatARS(value: number): string {
   return `$${value}`;
 }
 
-const fmt = (d: Date) => d.toISOString().split("T")[0];
+const pad = (n: number) => String(n).padStart(2, "0");
+const fmtLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const PERIODS = [
   { label: "Hoy",       id: "today" },
@@ -26,18 +27,18 @@ type PeriodId = (typeof PERIODS)[number]["id"];
 
 function periodToRange(id: PeriodId): { dateFrom: string; dateTo: string } {
   const today = new Date();
-  if (id === "today") return { dateFrom: fmt(today), dateTo: fmt(today) };
+  if (id === "today") return { dateFrom: fmtLocal(today), dateTo: fmtLocal(today) };
   if (id === "7d") {
     const f = new Date(today); f.setDate(f.getDate() - 7);
-    return { dateFrom: fmt(f), dateTo: fmt(today) };
+    return { dateFrom: fmtLocal(f), dateTo: fmtLocal(today) };
   }
   if (id === "14d") {
     const f = new Date(today); f.setDate(f.getDate() - 14);
-    return { dateFrom: fmt(f), dateTo: fmt(today) };
+    return { dateFrom: fmtLocal(f), dateTo: fmtLocal(today) };
   }
   if (id === "30d") {
     const f = new Date(today); f.setDate(f.getDate() - 30);
-    return { dateFrom: fmt(f), dateTo: fmt(today) };
+    return { dateFrom: fmtLocal(f), dateTo: fmtLocal(today) };
   }
   return { dateFrom: "", dateTo: "" };
 }
@@ -55,11 +56,14 @@ export default function DashboardPage() {
   const [credits, setCredits]   = useState(0);
   const [consumed, setConsumed] = useState(0);
 
-  const [tnConnected, setTnConnected] = useState(false);
-  const [tnStoreName, setTnStoreName] = useState("");
-  const [tnIngresos, setTnIngresos]   = useState(0);
-  const [syncing, setSyncing]         = useState(false);
-  const [syncMsg, setSyncMsg]         = useState("");
+  const [tnConnected, setTnConnected]   = useState(false);
+  const [tnStoreName, setTnStoreName]   = useState("");
+  const [tnIngresos, setTnIngresos]     = useState(0);
+  const [tnShipping, setTnShipping]     = useState(0);
+  const [tnNet, setTnNet]               = useState(0);
+  const [tnTotal, setTnTotal]           = useState(0);
+  const [syncing, setSyncing]           = useState(false);
+  const [syncMsg, setSyncMsg]           = useState("");
 
   const [toPay, setToPay]             = useState(0);
   const [toPack, setToPack]           = useState(0);
@@ -67,7 +71,7 @@ export default function DashboardPage() {
   const [inTransit, setInTransit]     = useState(0);
   const [delivered, setDelivered]     = useState(0);
 
-  const [period, setPeriod] = useState<PeriodId>("30d");
+  const [period, setPeriod] = useState<PeriodId>("today");
 
   useEffect(() => {
     fetch("/api/credits")
@@ -96,20 +100,24 @@ export default function DashboardPage() {
 
   const fetchMetrics = useCallback((p: PeriodId) => {
     const { dateFrom, dateTo } = periodToRange(p);
-    const params = new URLSearchParams({ platform: "tiendanube" });
+    // Reuse /api/orders — already has timezone-correct filtering, statusCounts, and revenue aggregates
+    const params = new URLSearchParams({ platform: "tiendanube", page: "0" });
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo)   params.set("dateTo", dateTo);
 
-    fetch(`/api/metrics?${params}`)
+    fetch(`/api/orders?${params}`)
       .then((r) => r.json())
       .then((data) => {
-        setTnIngresos(data.totalRevenue ?? 0);
+        setTnIngresos(data.totalRevenue  ?? 0);
+        setTnShipping(data.totalShipping ?? 0);
+        setTnNet(data.netRevenue         ?? 0);
+        setTnTotal(data.total            ?? 0);
         const sc = data.statusCounts ?? {};
-        setToPay(sc.pending ?? 0);
-        setToPack(sc.paid ?? 0);
+        setToPay(sc.pending          ?? 0);
+        setToPack(sc.paid            ?? 0);
         setReadyToShip(sc.ready_to_ship ?? 0);
-        setInTransit(sc.shipped ?? 0);
-        setDelivered(sc.delivered ?? 0);
+        setInTransit(sc.shipped      ?? 0);
+        setDelivered(sc.delivered    ?? 0);
       })
       .catch(() => {});
   }, []);
@@ -232,23 +240,23 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
-            label="Ingresos tienda"
+            label="Facturación"
             value={formatARS(tnIngresos)}
             change={0}
           />
           <MetricCard
-            label="MercadoPago (cobros)"
-            value="$0"
+            label="Gastos de Envío"
+            value={formatARS(tnShipping)}
             change={0}
           />
           <MetricCard
-            label="Gastos (envíos + comisión)"
-            value="$0"
+            label="Ganancia Neta"
+            value={formatARS(tnNet)}
             change={0}
           />
           <MetricCard
-            label="Ganancia tienda"
-            value="$0"
+            label="Pedidos"
+            value={String(tnTotal)}
             change={0}
           />
         </div>
