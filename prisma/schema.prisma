@@ -9,28 +9,36 @@ datasource db {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model order {
-  id           String   @id
-  storeId      String
-  userId       String
-  externalId   String
-  buyerName    String
-  buyerEmail   String
-  address      String   @db.LongText
-  products     String   @db.LongText
-  courier      String?
-  trackingCode String?
-  status       String
-  exported     Boolean  @default(false)
-  notified     Boolean  @default(false)
-  totalAmount  Float
-  shippingCost Float    @default(0)
-  rawPayload   Json?
-  createdAt    DateTime @default(now())
-  store        store    @relation(fields: [storeId], references: [id], onDelete: NoAction, map: "Order_storeId_fkey")
-  user         user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Order_userId_fkey")
+  id                  String               @id
+  storeId             String
+  userId              String
+  externalId          String
+  buyerName           String
+  buyerEmail          String
+  address             String               @db.LongText
+  products            String               @db.LongText
+  courier             String?
+  trackingCode        String?
+  status              String
+  exported            Boolean              @default(false)
+  notified            Boolean              @default(false)
+  totalAmount         Float
+  shippingCost        Float                @default(0)
+  rawPayload          Json?
+  operationalStatus   String?
+  adminNote           String?              @db.Text
+  clientNote          String?              @db.Text
+  lastUpdatedById     String?
+  createdAt           DateTime             @default(now())
+  store               store                @relation(fields: [storeId], references: [id], onDelete: NoAction, map: "Order_storeId_fkey")
+  user                user                 @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Order_userId_fkey")
+  lastUpdatedByUser   user?                @relation("OrderLastUpdater", fields: [lastUpdatedById], references: [id], onDelete: SetNull, map: "Order_lastUpdatedById_fkey")
+  orderStatusHistory  orderStatusHistory[]
 
   @@unique([storeId, externalId], map: "Order_storeId_externalId_key")
   @@index([userId], map: "Order_userId_fkey")
+  @@index([lastUpdatedById], map: "Order_lastUpdatedById_fkey")
+  @@index([operationalStatus], map: "Order_operationalStatus_idx")
 }
 
 model store {
@@ -68,22 +76,24 @@ model transaction {
 }
 
 model user {
-  id                 String           @id
-  email              String           @unique(map: "User_email_key")
-  name               String
-  password           String
-  credits            Float            @default(20)
-  role               String           @default("CLIENT")
-  status             String           @default("active")
-  lastLoginAt        DateTime?
-  createdAt          DateTime         @default(now())
-  order              order[]
-  store              store[]
-  transaction        transaction[]
-  product            product[]
-  passwordResetToken passwordResetToken[]
-  creditPurchase     creditPurchase[]
-  auditLog           auditLog[]       @relation("AuditLogActor")
+  id                   String               @id
+  email                String               @unique(map: "User_email_key")
+  name                 String
+  password             String
+  credits              Float                @default(20)
+  role                 String               @default("CLIENT")
+  status               String               @default("active")
+  lastLoginAt          DateTime?
+  createdAt            DateTime             @default(now())
+  order                order[]
+  ordersLastUpdated    order[]              @relation("OrderLastUpdater")
+  orderStatusHistory   orderStatusHistory[] @relation("OrderStatusHistoryChanger")
+  store                store[]
+  transaction          transaction[]
+  product              product[]
+  passwordResetToken   passwordResetToken[]
+  creditPurchase       creditPurchase[]
+  auditLog             auditLog[]           @relation("AuditLogActor")
 }
 
 model creditPackage {
@@ -151,6 +161,22 @@ model passwordResetToken {
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "PasswordResetToken_userId_fkey")
 
   @@index([userId], map: "PasswordResetToken_userId_fkey")
+}
+
+model orderStatusHistory {
+  id           String   @id
+  orderId      String
+  oldStatus    String?
+  newStatus    String
+  internalNote String?  @db.Text
+  clientNote   String?  @db.Text
+  changedById  String?
+  changedAt    DateTime @default(now())
+  order        order    @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "OrderStatusHistory_orderId_fkey")
+  changedBy    user?    @relation("OrderStatusHistoryChanger", fields: [changedById], references: [id], onDelete: SetNull, map: "OrderStatusHistory_changedById_fkey")
+
+  @@index([orderId], map: "OrderStatusHistory_orderId_fkey")
+  @@index([changedById], map: "OrderStatusHistory_changedById_fkey")
 }
 
 model product {

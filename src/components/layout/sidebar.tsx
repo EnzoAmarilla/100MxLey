@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  ShieldCheck,
+  Truck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavProgress } from "@/components/layout/nav-progress";
@@ -67,14 +69,17 @@ const navItems = [
   },
   { label: "Facturación", href: "/billing", icon: Receipt },
   { label: "Stock", href: "/stock", icon: Package },
-  { label: "Créditos", href: "/credits", icon: Coins },
-  { label: "Ver tutorial", href: "#", icon: PlayCircle },
+  { label: "Créditos",           href: "/credits",   icon: Coins },
+  { label: "Pedidos / Logística", href: "/logistics", icon: Truck },
+  { label: "Ver tutorial",       href: "#",          icon: PlayCircle },
 ];
 
 export function Sidebar() {
   const pathname    = usePathname();
   const { start }   = useNavProgress();
+  const { data: session } = useSession();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const isSuperAdmin = session?.user?.role === "SUPERADMIN";
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 flex flex-col border-r border-brand-border bg-brand-bg">
@@ -100,6 +105,16 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="relative flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        {isSuperAdmin && (
+          <Link
+            href="/superadmin"
+            onClick={start}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold mb-2 bg-neon-purple/15 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/25 hover:border-neon-purple/50 transition-all duration-200 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+          >
+            <ShieldCheck className="h-4 w-4 shrink-0 drop-shadow-[0_0_6px_#8b5cf6]" />
+            <span>Panel Superadmin</span>
+          </Link>
+        )}
         {navItems.map((item) => {
           if (item.children) {
             const isExpanded = expanded === item.label;
