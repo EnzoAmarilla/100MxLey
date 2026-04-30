@@ -79,6 +79,24 @@ model user {
   transaction        transaction[]
   product            product[]
   passwordResetToken passwordResetToken[]
+  creditPurchase     creditPurchase[]
+}
+
+model creditPurchase {
+  id             String    @id
+  userId         String
+  credits        Int
+  amount         Float
+  currency       String    @default("ARS")
+  status         String    @default("pending")
+  mpPaymentId    String?   @unique
+  mpPreferenceId String?
+  packageName    String?
+  createdAt      DateTime  @default(now())
+  approvedAt     DateTime?
+  user           user      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "CreditPurchase_userId_fkey")
+
+  @@index([userId], map: "CreditPurchase_userId_fkey")
 }
 
 model passwordResetToken {
