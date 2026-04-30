@@ -8,10 +8,7 @@ import { Resend } from "resend";
 const TOKEN_TTL_HOURS = 1;
 
 export async function POST(req: Request) {
-  // Initialize lazily so missing env vars don't crash the build
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const FROM   = process.env.EMAIL_FROM ?? "100Mxley <onboarding@resend.dev>";
-  const BASE   = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const BASE = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
   const { email } = await req.json().catch(() => ({}));
 
@@ -41,30 +38,35 @@ export async function POST(req: Request) {
 
   const resetUrl = `${BASE}/reset-password?token=${token}`;
 
-  try {
-    await resend.emails.send({
-      from: FROM,
-      to:   user.email,
-      subject: "Restablecer contraseña — 100Mxley",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0a0a0f;color:#e2e8f0;border-radius:12px">
-          <h2 style="color:#00F5FF;margin-bottom:8px">Recuperar contraseña</h2>
-          <p style="color:#94a3b8;margin-bottom:24px">Hola <strong style="color:#e2e8f0">${user.name}</strong>, recibimos una solicitud para restablecer tu contraseña en 100Mxley.</p>
-          <a href="${resetUrl}" style="display:inline-block;background:#00F5FF;color:#0a0a0f;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:15px">
-            Restablecer contraseña
-          </a>
-          <p style="color:#64748b;font-size:12px;margin-top:24px">
-            Este enlace expira en ${TOKEN_TTL_HOURS} hora. Si no solicitaste este cambio, podés ignorar este email.
-          </p>
-          <p style="color:#64748b;font-size:11px;margin-top:8px;word-break:break-all">
-            O copiá este enlace: ${resetUrl}
-          </p>
-        </div>
-      `,
-    });
-  } catch (err) {
-    console.error("[FORGOT_PASSWORD_EMAIL_ERROR]", err);
-    // Don't expose email errors to the client
+  if (process.env.RESEND_API_KEY) {
+    const FROM = process.env.EMAIL_FROM ?? "100Mxley <onboarding@resend.dev>";
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: FROM,
+        to:   user.email,
+        subject: "Restablecer contraseña — 100Mxley",
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0a0a0f;color:#e2e8f0;border-radius:12px">
+            <h2 style="color:#00F5FF;margin-bottom:8px">Recuperar contraseña</h2>
+            <p style="color:#94a3b8;margin-bottom:24px">Hola <strong style="color:#e2e8f0">${user.name}</strong>, recibimos una solicitud para restablecer tu contraseña en 100Mxley.</p>
+            <a href="${resetUrl}" style="display:inline-block;background:#00F5FF;color:#0a0a0f;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:15px">
+              Restablecer contraseña
+            </a>
+            <p style="color:#64748b;font-size:12px;margin-top:24px">
+              Este enlace expira en ${TOKEN_TTL_HOURS} hora. Si no solicitaste este cambio, podés ignorar este email.
+            </p>
+            <p style="color:#64748b;font-size:11px;margin-top:8px;word-break:break-all">
+              O copiá este enlace: ${resetUrl}
+            </p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      console.error("[FORGOT_PASSWORD_EMAIL_ERROR]", err);
+    }
+  } else {
+    console.warn("[FORGOT_PASSWORD] RESEND_API_KEY no configurado — email no enviado. Token:", token);
   }
 
   return NextResponse.json({ ok: true });
