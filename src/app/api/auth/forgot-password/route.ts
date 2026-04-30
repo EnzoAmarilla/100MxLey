@@ -5,13 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM   = process.env.EMAIL_FROM ?? "100Mxley <onboarding@resend.dev>";
-const BASE   = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
-
 const TOKEN_TTL_HOURS = 1;
 
 export async function POST(req: Request) {
+  // Initialize lazily so missing env vars don't crash the build
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const FROM   = process.env.EMAIL_FROM ?? "100Mxley <onboarding@resend.dev>";
+  const BASE   = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
   const { email } = await req.json().catch(() => ({}));
 
   // Always return 200 — don't reveal whether the email exists
