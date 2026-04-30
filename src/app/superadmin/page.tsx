@@ -189,7 +189,7 @@ export default function SuperAdminDashboard() {
                     <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                     <Tooltip
                       contentStyle={{ background: "#0f1117", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: number) => [`$${v.toLocaleString("es-AR")}`, "Ingreso"]}
+                      formatter={(v) => [`$${Number(v).toLocaleString("es-AR")}`, "Ingreso"]}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="#00FF88" fill="url(#revGrad)" strokeWidth={2} />
                   </AreaChart>
