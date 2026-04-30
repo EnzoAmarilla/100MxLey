@@ -23,7 +23,7 @@ model order {
   exported     Boolean  @default(false)
   notified     Boolean  @default(false)
   totalAmount  Float
-  shippingCost Float  @default(0)
+  shippingCost Float    @default(0)
   rawPayload   Json?
   createdAt    DateTime @default(now())
   store        store    @relation(fields: [storeId], references: [id], onDelete: NoAction, map: "Order_storeId_fkey")
@@ -34,21 +34,21 @@ model order {
 }
 
 model store {
-  id          String    @id
-  userId      String
-  platform    String
-  storeId     String
-  storeName   String
-  accessToken String
-  tokenType   String?
-  scope       String?
-  domain      String?
-  lastSync    DateTime?
+  id              String    @id
+  userId          String
+  platform        String
+  storeId         String
+  storeName       String
+  accessToken     String
+  tokenType       String?
+  scope           String?
+  domain          String?
+  lastSync        DateTime?
   lastProductSync DateTime?
-  createdAt   DateTime  @default(now())
-  order       order[]
-  product     product[]
-  user        user      @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Store_userId_fkey")
+  createdAt       DateTime  @default(now())
+  order           order[]
+  product         product[]
+  user            user      @relation(fields: [userId], references: [id], onDelete: NoAction, map: "Store_userId_fkey")
 
   @@unique([platform, storeId], map: "Store_platform_storeId_key")
   @@index([userId], map: "Store_userId_fkey")
@@ -68,35 +68,78 @@ model transaction {
 }
 
 model user {
-  id                 String               @id
-  email              String               @unique(map: "User_email_key")
+  id                 String           @id
+  email              String           @unique(map: "User_email_key")
   name               String
   password           String
-  credits            Float                @default(20)
-  createdAt          DateTime             @default(now())
+  credits            Float            @default(20)
+  role               String           @default("CLIENT")
+  status             String           @default("active")
+  lastLoginAt        DateTime?
+  createdAt          DateTime         @default(now())
   order              order[]
   store              store[]
   transaction        transaction[]
   product            product[]
   passwordResetToken passwordResetToken[]
   creditPurchase     creditPurchase[]
+  auditLog           auditLog[]       @relation("AuditLogActor")
+}
+
+model creditPackage {
+  id               String           @id
+  name             String
+  credits          Int
+  priceArs         Float
+  pricePerCredit   Float?
+  active           Boolean          @default(true)
+  visibleToClients Boolean          @default(true)
+  isCustom         Boolean          @default(false)
+  sortOrder        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  creditPurchase   creditPurchase[]
+
+  @@index([credits], map: "CreditPackage_credits_idx")
+  @@index([active, visibleToClients], map: "CreditPackage_active_visible_idx")
 }
 
 model creditPurchase {
-  id             String    @id
+  id             String         @id
   userId         String
+  packageId      String?
   credits        Int
   amount         Float
-  currency       String    @default("ARS")
-  status         String    @default("pending")
-  mpPaymentId    String?   @unique
+  currency       String         @default("ARS")
+  status         String         @default("pending")
+  mpPaymentId    String?        @unique
   mpPreferenceId String?
   packageName    String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime       @default(now())
   approvedAt     DateTime?
-  user           user      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "CreditPurchase_userId_fkey")
+  user           user           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "CreditPurchase_userId_fkey")
+  package        creditPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull, map: "CreditPurchase_packageId_fkey")
 
   @@index([userId], map: "CreditPurchase_userId_fkey")
+  @@index([packageId], map: "CreditPurchase_packageId_fkey")
+}
+
+model auditLog {
+  id          String   @id
+  actorId     String?
+  actorRole   String?
+  action      String
+  entityType  String?
+  entityId    String?
+  oldValue    String?  @db.Text
+  newValue    String?  @db.Text
+  reason      String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  actor       user?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull, map: "AuditLog_actorId_fkey")
+
+  @@index([actorId], map: "AuditLog_actorId_fkey")
+  @@index([createdAt], map: "AuditLog_createdAt_idx")
 }
 
 model passwordResetToken {

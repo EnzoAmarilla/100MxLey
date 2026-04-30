@@ -6,15 +6,12 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 
-// Source of truth for pricing — never trust frontend amounts
-const CREDIT_PRICES: Record<number, number> = { 50: 5000, 100: 9000, 200: 16000 };
-const CUSTOM_PRICE_PER_CREDIT = 100;
-const MIN_CUSTOM_CREDITS = 10;
-const MAX_CUSTOM_CREDITS = 10_000;
-
 const BASE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
+
+const MIN_CUSTOM = 10;
+const MAX_CUSTOM = 10_000;
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -22,66 +19,75 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body    = await req.json().catch(() => ({}));
   const credits = Number(body.credits);
 
   if (!credits || !Number.isInteger(credits) || credits <= 0) {
     return NextResponse.json({ error: "Cantidad de créditos inválida" }, { status: 400 });
   }
 
-  // Compute price server-side — ignore any amount from the client
-  const knownPrice = CREDIT_PRICES[credits as keyof typeof CREDIT_PRICES];
+  // Fetch matching active package from DB (source of truth for pricing)
+  const pkg = await prisma.creditPackage.findFirst({
+    where: { credits, active: true, isCustom: false },
+  });
+
   let price: number;
   let packageName: string;
+  let packageId: string | null = null;
 
-  if (knownPrice) {
-    price = knownPrice;
-    packageName = `Paquete ${credits} créditos`;
+  if (pkg) {
+    price       = pkg.priceArs;
+    packageName = pkg.name;
+    packageId   = pkg.id;
   } else {
-    if (credits < MIN_CUSTOM_CREDITS) {
-      return NextResponse.json({ error: `Mínimo ${MIN_CUSTOM_CREDITS} créditos` }, { status: 400 });
+    // Custom amount — find the custom package config for per-credit price
+    const customPkg = await prisma.creditPackage.findFirst({
+      where: { isCustom: true, active: true },
+    });
+    const pricePerCredit = customPkg?.pricePerCredit ?? 100;
+
+    if (credits < MIN_CUSTOM) {
+      return NextResponse.json({ error: `Mínimo ${MIN_CUSTOM} créditos` }, { status: 400 });
     }
-    if (credits > MAX_CUSTOM_CREDITS) {
+    if (credits > MAX_CUSTOM) {
       return NextResponse.json(
-        { error: `Máximo ${MAX_CUSTOM_CREDITS.toLocaleString("es-AR")} créditos` },
+        { error: `Máximo ${MAX_CUSTOM.toLocaleString("es-AR")} créditos` },
         { status: 400 }
       );
     }
-    price = credits * CUSTOM_PRICE_PER_CREDIT;
+    price       = credits * pricePerCredit;
     packageName = `${credits} créditos personalizados`;
+    packageId   = customPkg?.id ?? null;
   }
 
   const purchaseId = randomUUID();
 
   try {
-    // Record pending purchase before hitting MP
     await prisma.creditPurchase.create({
       data: {
-        id: purchaseId,
-        userId: session.user.id,
+        id:         purchaseId,
+        userId:     session.user.id,
+        packageId,
         credits,
-        amount: price,
-        currency: "ARS",
-        status: "pending",
+        amount:     price,
+        currency:   "ARS",
+        status:     "pending",
         packageName,
       },
     });
 
-    const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
+    const client    = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
     const preference = new Preference(client);
 
     const result = await preference.create({
       body: {
-        items: [
-          {
-            id: `credits-${credits}`,
-            title: `${credits} créditos — 100Mxley`,
-            quantity: 1,
-            unit_price: price,
-            currency_id: "ARS",
-          },
-        ],
-        // Format: userId|credits|purchaseId — used by webhook to identify the purchase
+        items: [{
+          id:         `credits-${credits}`,
+          title:      `${credits} créditos — 100Mxley`,
+          quantity:   1,
+          unit_price: price,
+          currency_id: "ARS",
+        }],
         external_reference: `${session.user.id}|${credits}|${purchaseId}`,
         back_urls: {
           success: `${BASE_URL}/credits?payment=success`,
@@ -93,23 +99,19 @@ export async function POST(req: Request) {
       },
     });
 
-    // Store preferenceId for reference
     await prisma.creditPurchase.update({
       where: { id: purchaseId },
-      data: { mpPreferenceId: result.id ?? null },
+      data:  { mpPreferenceId: result.id ?? null },
     });
 
-    console.log(
-      `[MP_PREFERENCE_CREATED] userId=${session.user.id} credits=${credits} price=${price} purchaseId=${purchaseId}`
-    );
+    console.log(`[MP_PREFERENCE_CREATED] userId=${session.user.id} credits=${credits} price=${price} pkg=${packageName}`);
 
     return NextResponse.json({ url: result.init_point });
   } catch (err: any) {
     console.error("[MP_CREATE_PREFERENCE_ERROR]", err?.message ?? err);
-    // Mark purchase as cancelled if MP call failed
     await prisma.creditPurchase.update({
       where: { id: purchaseId },
-      data: { status: "cancelled" },
+      data:  { status: "cancelled" },
     }).catch(() => {});
     return NextResponse.json({ error: "Error al crear la preferencia de pago" }, { status: 500 });
   }
