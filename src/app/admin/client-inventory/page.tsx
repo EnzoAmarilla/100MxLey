@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Search, Package, AlertTriangle } from "lucide-react";
+import { useAdminClient } from "@/contexts/admin-client";
+import { NoClientSelected } from "@/components/admin/no-client-selected";
 
 interface InventoryItem {
   id:         string;
@@ -18,6 +20,7 @@ interface InventoryItem {
 }
 
 export default function AdminClientInventoryPage() {
+  const { activeClient, hydrated } = useAdminClient();
   const [items, setItems]   = useState<InventoryItem[]>([]);
   const [total, setTotal]   = useState(0);
   const [search, setSearch] = useState("");
@@ -27,10 +30,12 @@ export default function AdminClientInventoryPage() {
   const PAGE_SIZE = 25;
 
   const fetchInventory = useCallback(() => {
+    if (!activeClient) return;
     setLoading(true);
     const params = new URLSearchParams({
-      page: String(page),
-      limit: String(PAGE_SIZE),
+      page:     String(page),
+      limit:    String(PAGE_SIZE),
+      clientId: activeClient.id,
       ...(search ? { search } : {}),
       ...(alert ? { lowStock: "true" } : {}),
     });
@@ -39,17 +44,22 @@ export default function AdminClientInventoryPage() {
       .then((d) => { setItems(d.items ?? []); setTotal(d.total ?? 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page, search, alert]);
+  }, [page, search, alert, activeClient]);
 
-  useEffect(() => { fetchInventory(); }, [fetchInventory]);
+  useEffect(() => {
+    if (hydrated && activeClient) fetchInventory();
+  }, [fetchInventory, hydrated, activeClient]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  if (!hydrated) return <div className="h-64 rounded-xl bg-white/5 animate-pulse" />;
+  if (!activeClient) return <NoClientSelected />;
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-white">Inventario de clientes</h1>
-        <p className="text-sm text-zinc-400 mt-0.5">{total} productos en total</p>
+        <h1 className="text-2xl font-bold text-white">Inventario</h1>
+        <p className="text-sm text-zinc-400 mt-0.5">{total} productos de {activeClient.name}</p>
       </div>
 
       {/* Filters */}

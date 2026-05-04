@@ -17,12 +17,12 @@ import {
 import type { Session } from "next-auth";
 
 const navItems = [
-  { label: "Dashboard operativo", href: "/admin",                   icon: LayoutDashboard },
-  { label: "Pedidos / Logística", href: "/admin/orders",            icon: Truck },
-  { label: "Inventario clientes", href: "/admin/client-inventory",  icon: Boxes },
-  { label: "Clientes",            href: "/admin/clients",           icon: Users },
-  { label: "Incidencias",         href: "/admin/incidents",         icon: ClipboardList },
-  { label: "Historial operativo", href: "/admin/history",           icon: History },
+  { label: "Dashboard operativo", href: "/admin",                  icon: LayoutDashboard },
+  { label: "Clientes",            href: "/admin/clients",          icon: Users },
+  { label: "Pedidos / Logística", href: "/admin/orders",           icon: Truck },
+  { label: "Inventario",          href: "/admin/client-inventory", icon: Boxes },
+  { label: "Incidencias",         href: "/admin/incidents",        icon: ClipboardList },
+  { label: "Historial operativo", href: "/admin/history",          icon: History },
 ];
 
 interface Props {

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -11,9 +12,17 @@ export async function GET(req: Request) {
   const limit    = Math.min(100, Number(searchParams.get("limit") ?? 25));
   const search   = searchParams.get("search") ?? "";
   const lowStock = searchParams.get("lowStock") === "true";
+  const clientId = searchParams.get("clientId") ?? "";
   const skip     = (page - 1) * limit;
 
-  const where: Record<string, unknown> = {};
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "Debe seleccionar un cliente para continuar." },
+      { status: 400 },
+    );
+  }
+
+  const where: Record<string, unknown> = { userId: clientId };
   if (lowStock) where.stock = { lte: prisma.product.fields.minStock };
   if (search) {
     where.OR = [

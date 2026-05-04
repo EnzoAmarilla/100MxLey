@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Search, Filter, ChevronLeft, ChevronRight, ExternalLink, RefreshCw } from "lucide-react";
 import { STATUS_LABELS, STATUS_COLORS, OPERATIONAL_STATUSES, type OperationalStatus } from "@/lib/admin";
+import { useAdminClient } from "@/contexts/admin-client";
+import { NoClientSelected } from "@/components/admin/no-client-selected";
 
 interface AdminOrder {
   id:               string;
@@ -24,6 +26,7 @@ interface AdminOrder {
 const ALL_STATUS = ["all", ...OPERATIONAL_STATUSES] as const;
 
 export default function AdminOrdersPage() {
+  const { activeClient, hydrated } = useAdminClient();
   const [orders, setOrders]   = useState<AdminOrder[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(1);
@@ -31,7 +34,6 @@ export default function AdminOrdersPage() {
   const [status, setStatus]   = useState("all");
   const [loading, setLoading] = useState(true);
 
-  // Inline status update
   const [updating, setUpdating] = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -39,10 +41,12 @@ export default function AdminOrdersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const fetchOrders = useCallback(() => {
+    if (!activeClient) return;
     setLoading(true);
     const params = new URLSearchParams({
-      page: String(page),
-      limit: String(PAGE_SIZE),
+      page:     String(page),
+      limit:    String(PAGE_SIZE),
+      clientId: activeClient.id,
       ...(search ? { search } : {}),
       ...(status !== "all" ? { status } : {}),
     });
@@ -51,9 +55,11 @@ export default function AdminOrdersPage() {
       .then((d) => { setOrders(d.orders ?? []); setTotal(d.total ?? 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page, search, status]);
+  }, [page, search, status, activeClient]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    if (hydrated && activeClient) fetchOrders();
+  }, [fetchOrders, hydrated, activeClient]);
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -83,6 +89,9 @@ export default function AdminOrdersPage() {
   const opStatus = (o: AdminOrder): OperationalStatus | null =>
     (o.operationalStatus as OperationalStatus) ?? null;
 
+  if (!hydrated) return <div className="h-64 rounded-xl bg-white/5 animate-pulse" />;
+  if (!activeClient) return <NoClientSelected />;
+
   return (
     <div className="space-y-5">
       {/* Toast */}
@@ -99,7 +108,7 @@ export default function AdminOrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Pedidos / Logística</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">{total} pedidos en total</p>
+          <p className="text-sm text-zinc-400 mt-0.5">{total} pedidos de {activeClient.name}</p>
         </div>
         <button onClick={fetchOrders} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-sm border border-zinc-700/50 transition-all">
           <RefreshCw className="h-3.5 w-3.5" /> Actualizar

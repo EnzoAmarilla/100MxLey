@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -7,21 +8,27 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const page   = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const limit  = Math.min(50, Number(searchParams.get("limit") ?? 20));
-  const search = searchParams.get("search") ?? "";
-  const status = searchParams.get("status") ?? "";
-  const skip   = (page - 1) * limit;
+  const page     = Math.max(1, Number(searchParams.get("page") ?? 1));
+  const limit    = Math.min(50, Number(searchParams.get("limit") ?? 20));
+  const search   = searchParams.get("search") ?? "";
+  const status   = searchParams.get("status") ?? "";
+  const clientId = searchParams.get("clientId") ?? "";
+  const skip     = (page - 1) * limit;
 
-  const where: Record<string, unknown> = {};
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "Debe seleccionar un cliente para continuar." },
+      { status: 400 },
+    );
+  }
+
+  const where: Record<string, unknown> = { userId: clientId };
   if (status) where.operationalStatus = status;
   if (search) {
     where.OR = [
       { buyerName:  { contains: search } },
       { buyerEmail: { contains: search } },
       { externalId: { contains: search } },
-      { user: { name:  { contains: search } } },
-      { user: { email: { contains: search } } },
     ];
   }
 
