@@ -7,12 +7,9 @@ import {
   LayoutDashboard,
   Users,
   Coins,
-  CreditCard,
-  Receipt,
   Truck,
   UserCog,
   Settings,
-  ClipboardList,
   LogOut,
   ShieldCheck,
   Zap,
@@ -22,12 +19,9 @@ const navItems = [
   { label: "Dashboard",         href: "/superadmin",             icon: LayoutDashboard },
   { label: "Clientes",          href: "/superadmin/clients",     icon: Users },
   { label: "Créditos / Precios",href: "/superadmin/credits",     icon: Coins },
-  { label: "Compras / Pagos",   href: "/superadmin/payments",    icon: CreditCard },
-  { label: "Facturación",       href: "/superadmin/billing",     icon: Receipt },
   { label: "Envíos",            href: "/superadmin/shipments",   icon: Truck },
   { label: "Usuarios internos", href: "/superadmin/admin-users", icon: UserCog },
   { label: "Configuración",     href: "/superadmin/settings",    icon: Settings },
-  { label: "Auditoría",         href: "/superadmin/audit-log",   icon: ClipboardList },
 ];
 
 export function SuperAdminSidebar() {
