@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Store,
-  Receipt,
   Package,
   Coins,
   PlayCircle,
@@ -67,11 +66,10 @@ const navItems = [
       { label: "Pedidos", href: "/shopify" },
     ],
   },
-  { label: "Facturación", href: "/billing", icon: Receipt },
   { label: "Stock", href: "/stock", icon: Package },
   { label: "Créditos",           href: "/credits",   icon: Coins },
   { label: "Pedidos / Logística", href: "/logistics", icon: Truck },
-  { label: "Ver tutorial",       href: "#",          icon: PlayCircle },
+  { label: "Ver tutorial",       href: "/tutorials", icon: PlayCircle },
 ];
 
 export function Sidebar() {

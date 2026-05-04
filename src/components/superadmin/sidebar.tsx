@@ -10,18 +10,20 @@ import {
   Truck,
   UserCog,
   Settings,
+  PlayCircle,
   LogOut,
   ShieldCheck,
   Zap,
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard",         href: "/superadmin",             icon: LayoutDashboard },
-  { label: "Clientes",          href: "/superadmin/clients",     icon: Users },
-  { label: "Créditos / Precios",href: "/superadmin/credits",     icon: Coins },
-  { label: "Envíos",            href: "/superadmin/shipments",   icon: Truck },
-  { label: "Usuarios internos", href: "/superadmin/admin-users", icon: UserCog },
-  { label: "Configuración",     href: "/superadmin/settings",    icon: Settings },
+  { label: "Dashboard",         href: "/superadmin",              icon: LayoutDashboard },
+  { label: "Clientes",          href: "/superadmin/clients",      icon: Users },
+  { label: "Créditos / Precios",href: "/superadmin/credits",      icon: Coins },
+  { label: "Envíos",            href: "/superadmin/shipments",    icon: Truck },
+  { label: "Usuarios internos", href: "/superadmin/admin-users",  icon: UserCog },
+  { label: "Tutoriales",        href: "/superadmin/tutorials",    icon: PlayCircle },
+  { label: "Configuración",     href: "/superadmin/settings",     icon: Settings },
 ];
 
 export function SuperAdminSidebar() {
