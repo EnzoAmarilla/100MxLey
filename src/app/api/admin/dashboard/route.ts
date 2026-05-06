@@ -22,12 +22,15 @@ export async function GET(req: Request) {
 
   // ── Global overview (no client selected) ──────────────────────────────────
   if (!clientId) {
-    const [connectedClients, pendingTotal, incidenceTotal] = await Promise.all([
+    const [connectedClients, pendingTotal, incidenceTotal, logisticsActive, logisticsBlocked, logisticsRequests] = await Promise.all([
       prisma.user.count({ where: { role: "CLIENT", store: { some: {} } } }),
       prisma.order.count({ where: { operationalStatus: "pendiente" } }),
       prisma.order.count({ where: { operationalStatus: "incidencia" } }),
+      prisma.user.count({ where: { role: "CLIENT", logisticsAccessEnabled: true } }),
+      prisma.user.count({ where: { role: "CLIENT", logisticsAccessEnabled: false } }),
+      prisma.user.count({ where: { role: "CLIENT", logisticsAccessRequested: true, logisticsAccessEnabled: false } }),
     ]);
-    return NextResponse.json({ mode: "global", connectedClients, pendingTotal, incidenceTotal });
+    return NextResponse.json({ mode: "global", connectedClients, pendingTotal, incidenceTotal, logisticsActive, logisticsBlocked, logisticsRequests });
   }
 
   // ── Client-specific metrics ────────────────────────────────────────────────

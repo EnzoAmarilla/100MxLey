@@ -16,6 +16,9 @@ import {
   Zap,
   ShieldCheck,
   Truck,
+  PackagePlus,
+  ListChecks,
+  Lock,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavProgress } from "@/components/layout/nav-progress";
@@ -50,11 +53,12 @@ function DolarBlue() {
 }
 
 const navItems = [
-  { label: "Inicio", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Integraciones", href: "/integrations", icon: Zap },
+  { label: "Inicio",              href: "/dashboard",    icon: LayoutDashboard, logisticsGated: false },
+  { label: "Integraciones",       href: "/integrations", icon: Zap,             logisticsGated: false },
   {
     label: "Tiendanube",
     icon: ShoppingBag,
+    logisticsGated: false,
     children: [
       { label: "Pedidos", href: "/tiendanube" },
     ],
@@ -62,14 +66,17 @@ const navItems = [
   {
     label: "Shopify",
     icon: Store,
+    logisticsGated: false,
     children: [
       { label: "Pedidos", href: "/shopify" },
     ],
   },
-  { label: "Stock", href: "/stock", icon: Package },
-  { label: "Créditos",           href: "/credits",   icon: Coins },
-  { label: "Pedidos / Logística", href: "/logistics", icon: Truck },
-  { label: "Ver tutorial",       href: "/tutorials", icon: PlayCircle },
+  { label: "Stock",               href: "/stock",        icon: Package,    logisticsGated: false },
+  { label: "Créditos",            href: "/credits",      icon: Coins,      logisticsGated: false },
+  { label: "Pedidos / Logística", href: "/logistics",    icon: Truck,      logisticsGated: true },
+  { label: "Pedido de colecta",   href: "/colecta",      icon: PackagePlus, logisticsGated: true },
+  { label: "Mis colectas",        href: "/mis-colectas", icon: ListChecks, logisticsGated: true },
+  { label: "Ver tutorial",        href: "/tutorials",    icon: PlayCircle, logisticsGated: false },
 ];
 
 export function Sidebar() {
@@ -77,7 +84,16 @@ export function Sidebar() {
   const { start }   = useNavProgress();
   const { data: session } = useSession();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [logisticsEnabled, setLogisticsEnabled] = useState<boolean | null>(null);
   const isSuperAdmin = session?.user?.role === "SUPERADMIN";
+
+  useEffect(() => {
+    if (session?.user?.role !== "CLIENT") return;
+    fetch("/api/client/access")
+      .then((r) => r.json())
+      .then((d) => setLogisticsEnabled(d.logisticsEnabled ?? false))
+      .catch(() => setLogisticsEnabled(false));
+  }, [session?.user?.role]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 flex flex-col border-r border-brand-border bg-brand-bg">
@@ -159,6 +175,7 @@ export function Sidebar() {
             );
           }
 
+          const isLocked = item.logisticsGated && logisticsEnabled === false;
           return (
             <Link
               key={item.href}
@@ -171,7 +188,8 @@ export function Sidebar() {
               }`}
             >
               <item.icon className={`h-4 w-4 shrink-0 ${pathname === item.href ? "drop-shadow-[0_0_6px_#00F5FF]" : ""}`} />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {isLocked && <Lock className="h-3 w-3 opacity-40 shrink-0" />}
             </Link>
           );
         })}

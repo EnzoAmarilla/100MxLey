@@ -8,6 +8,14 @@ export async function GET(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const clientRecord = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { logisticsAccessEnabled: true },
+  });
+  if (!clientRecord?.logisticsAccessEnabled) {
+    return NextResponse.json({ error: "La sección Pedidos / Logística todavía no está habilitada para tu cuenta." }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const page  = Math.max(1, Number(searchParams.get("page") ?? 1));
   const limit = Math.min(50, Number(searchParams.get("limit") ?? 20));

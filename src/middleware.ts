@@ -11,6 +11,8 @@ const CLIENT_PREFIXES = [
   "/account",
   "/logistics",
   "/integrations",
+  "/colecta",
+  "/mis-colectas",
 ];
 
 const AUTH_PAGES = ["/login", "/register"];
@@ -107,6 +109,10 @@ export const config = {
     "/account/:path*",
     "/logistics/:path*",
     "/integrations/:path*",
+    "/colecta/:path*",
+    "/colecta",
+    "/mis-colectas/:path*",
+    "/mis-colectas",
     "/login",
     "/register",
   ],

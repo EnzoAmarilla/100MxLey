@@ -8,12 +8,10 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const search = searchParams.get("q") ?? "";
+  const search          = searchParams.get("q") ?? "";
+  const logisticsFilter = searchParams.get("logistics") ?? "";
 
-  const where: Record<string, unknown> = {
-    role:  "CLIENT",
-    store: { some: {} },
-  };
+  const where: Record<string, unknown> = { role: "CLIENT" };
 
   if (search) {
     where.OR = [
@@ -22,16 +20,31 @@ export async function GET(req: Request) {
     ];
   }
 
+  if (logisticsFilter === "active") {
+    where.logisticsAccessEnabled = true;
+  } else if (logisticsFilter === "blocked") {
+    where.logisticsAccessEnabled = false;
+  } else if (logisticsFilter === "tiendanube") {
+    where.store = { some: { platform: "tiendanube" } };
+  } else if (logisticsFilter === "requested") {
+    where.logisticsAccessRequested = true;
+    where.logisticsAccessEnabled = false;
+  } else if (logisticsFilter === "no_tiendanube") {
+    where.store = { none: { platform: "tiendanube" } };
+  }
+
   const clients = await prisma.user.findMany({
     where,
     select: {
-      id:         true,
-      name:       true,
-      email:      true,
-      status:     true,
-      credits:    true,
-      createdAt:  true,
-      lastLoginAt: true,
+      id:                       true,
+      name:                     true,
+      email:                    true,
+      status:                   true,
+      credits:                  true,
+      createdAt:                true,
+      lastLoginAt:              true,
+      logisticsAccessEnabled:   true,
+      logisticsAccessEnabledAt: true,
       store: {
         select: {
           id:              true,

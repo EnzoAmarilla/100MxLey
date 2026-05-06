@@ -13,6 +13,7 @@ import {
   History,
   ShieldCheck,
   Boxes,
+  PackagePlus,
 } from "lucide-react";
 import type { Session } from "next-auth";
 
@@ -20,6 +21,7 @@ const navItems = [
   { label: "Dashboard operativo", href: "/admin",                  icon: LayoutDashboard },
   { label: "Clientes",            href: "/admin/clients",          icon: Users },
   { label: "Pedidos / Logística", href: "/admin/orders",           icon: Truck },
+  { label: "Colectas",            href: "/admin/colectas",         icon: PackagePlus },
   { label: "Inventario",          href: "/admin/client-inventory", icon: Boxes },
   { label: "Incidencias",         href: "/admin/incidents",        icon: ClipboardList },
   { label: "Historial operativo", href: "/admin/history",          icon: History },

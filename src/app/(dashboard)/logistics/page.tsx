@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, Truck, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown, ChevronUp, Lock } from "lucide-react";
 import { STATUS_LABELS, STATUS_COLORS, STATUS_CLIENT_MESSAGES, type OperationalStatus } from "@/lib/admin";
 
 interface StatusHistory {
@@ -43,14 +43,78 @@ export default function LogisticsPage() {
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [hasRequested, setHasRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   useEffect(() => {
+    fetch("/api/client/access")
+      .then((r) => r.json())
+      .then((d) => {
+        setHasAccess(d.logisticsEnabled ?? false);
+        setHasRequested(d.logisticsRequested ?? false);
+      })
+      .catch(() => setHasAccess(false));
+  }, []);
+
+  useEffect(() => {
+    if (hasAccess !== true) return;
+    setLoading(true);
     fetch("/api/client/orders?limit=50")
       .then((r) => r.json())
       .then((d) => { setOrders(d.orders ?? []); setTotal(d.total ?? 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [hasAccess]);
+
+  const handleRequest = async () => {
+    setRequesting(true);
+    try {
+      await fetch("/api/client/request-logistics", { method: "POST" });
+      setHasRequested(true);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  if (hasAccess === null) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-xl bg-brand-surface animate-pulse border border-brand-border" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="h-16 w-16 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center mb-6">
+          <Lock className="h-8 w-8 text-[var(--text-secondary)]" />
+        </div>
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+          {hasRequested ? "Solicitud enviada" : "Acceso pendiente de habilitación"}
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)] max-w-sm mb-6">
+          {hasRequested 
+            ? "Tu solicitud está siendo procesada por nuestro equipo. Te avisaremos cuando esté lista."
+            : "Esta sección será habilitada por el equipo de 100Mxley cuando tu cuenta esté lista para operar con logística."}
+        </p>
+        {!hasRequested && (
+          <button
+            onClick={handleRequest}
+            disabled={requesting}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-sm font-medium hover:bg-neon-cyan/20 disabled:opacity-50 transition-all"
+          >
+            {requesting ? "Enviando…" : "Solicitar habilitación"}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

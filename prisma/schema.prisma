@@ -76,24 +76,33 @@ model transaction {
 }
 
 model user {
-  id                   String               @id
-  email                String               @unique(map: "User_email_key")
-  name                 String
-  password             String
-  credits              Float                @default(20)
-  role                 String               @default("CLIENT")
-  status               String               @default("active")
-  lastLoginAt          DateTime?
-  createdAt            DateTime             @default(now())
-  order                order[]
-  ordersLastUpdated    order[]              @relation("OrderLastUpdater")
-  orderStatusHistory   orderStatusHistory[] @relation("OrderStatusHistoryChanger")
-  store                store[]
-  transaction          transaction[]
-  product              product[]
-  passwordResetToken   passwordResetToken[]
-  creditPurchase       creditPurchase[]
-  auditLog             auditLog[]           @relation("AuditLogActor")
+  id                          String                   @id
+  email                       String                   @unique(map: "User_email_key")
+  name                        String
+  password                    String
+  credits                     Float                    @default(20)
+  role                        String                   @default("CLIENT")
+  status                      String                   @default("active")
+  lastLoginAt                 DateTime?
+  createdAt                   DateTime                 @default(now())
+  logisticsAccessEnabled      Boolean                  @default(false)
+  logisticsAccessEnabledAt    DateTime?
+  logisticsAccessEnabledById  String?
+  logisticsAccessDisabledAt   DateTime?
+  logisticsAccessDisabledById String?
+  logisticsAccessRequested      Boolean                  @default(false)
+  logisticsAccessRequestedAt    DateTime?
+  order                       order[]
+  ordersLastUpdated           order[]                  @relation("OrderLastUpdater")
+  orderStatusHistory          orderStatusHistory[]     @relation("OrderStatusHistoryChanger")
+  store                       store[]
+  transaction                 transaction[]
+  product                     product[]
+  passwordResetToken          passwordResetToken[]
+  creditPurchase              creditPurchase[]
+  auditLog                    auditLog[]               @relation("AuditLogActor")
+  pickupRequest               pickupRequest[]
+  pickupRequestHistory        pickupRequestHistory[]   @relation("PickupRequestHistoryChanger")
 }
 
 model creditPackage {
@@ -188,6 +197,65 @@ model tutorial {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model pickupRequest {
+  id                    String                 @id
+  userId                String
+  address               String                 @db.Text
+  city                  String
+  province              String
+  postalCode            String
+  packageCount          Int
+  packageSize           String
+  estimatedWeight       String?
+  preferredDate         String
+  preferredTimeSlot     String
+  shippingType          String
+  observations          String?                @db.Text
+  needsPackagingHelp    Boolean                @default(false)
+  alreadyLabeled        Boolean                @default(false)
+  hasFulfillmentProducts Boolean               @default(false)
+  needsQuote            Boolean                @default(false)
+  status                String                 @default("pendiente")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  user                  user                   @relation(fields: [userId], references: [id], onDelete: NoAction, map: "PickupRequest_userId_fkey")
+  history               pickupRequestHistory[]
+
+  @@index([userId], map: "PickupRequest_userId_fkey")
+  @@index([status], map: "PickupRequest_status_idx")
+  @@index([createdAt], map: "PickupRequest_createdAt_idx")
+}
+
+model pickupRequestHistory {
+  id              String        @id
+  pickupRequestId String
+  oldStatus       String?
+  newStatus       String?
+  internalNote    String?       @db.Text
+  clientNote      String?       @db.Text
+  changedById     String?
+  createdAt       DateTime      @default(now())
+  pickupRequest   pickupRequest @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade, map: "PickupRequestHistory_pickupRequestId_fkey")
+  changedBy       user?         @relation("PickupRequestHistoryChanger", fields: [changedById], references: [id], onDelete: SetNull, map: "PickupRequestHistory_changedById_fkey")
+
+  @@index([pickupRequestId], map: "PickupRequestHistory_pickupRequestId_fkey")
+  @@index([changedById], map: "PickupRequestHistory_changedById_fkey")
+}
+
+model clientFeatureAccessLog {
+  id          String   @id
+  clientId    String
+  featureName String
+  oldValue    Boolean
+  newValue    Boolean
+  changedById String?
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([clientId], map: "ClientFeatureAccessLog_clientId_idx")
+  @@index([createdAt], map: "ClientFeatureAccessLog_createdAt_idx")
 }
 
 model product {
