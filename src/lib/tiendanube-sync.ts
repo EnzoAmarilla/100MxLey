@@ -81,11 +81,14 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
         };
 
         const products = (tnOrder.products ?? []).map((p: any) => ({
-          id:       String(p.id),
-          name:     p.name,
-          sku:      p.sku || "N/A",
-          quantity: p.quantity,
-          price:    parseFloat(p.price),
+          id:             String(p.id),
+          name:           p.name || "Producto sin nombre",
+          sku:            p.sku  || null,
+          quantity:       p.quantity,
+          price:          parseFloat(p.price),
+          variant_values: Array.isArray(p.variant_values) && p.variant_values.length
+            ? p.variant_values
+            : undefined,
         }));
 
         const trackingCode   = tnOrder.shipping_tracking_number || null;
