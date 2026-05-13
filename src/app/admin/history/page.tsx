@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { History, ChevronLeft, ChevronRight, Lock, MessageSquare } from "lucide-react";
-import { STATUS_LABELS, STATUS_COLORS, type OperationalStatus } from "@/lib/admin";
+import { STATUS_LABELS, STATUS_COLORS, type OperationalStatus } from "@/lib/admin-constants";
 import { useAdminClient } from "@/contexts/admin-client";
 import { NoClientSelected } from "@/components/admin/no-client-selected";
 

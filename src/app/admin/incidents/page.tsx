@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
-import { STATUS_COLORS } from "@/lib/admin";
+import { STATUS_COLORS } from "@/lib/admin-constants";
 import { useAdminClient } from "@/contexts/admin-client";
 import { NoClientSelected } from "@/components/admin/no-client-selected";
 

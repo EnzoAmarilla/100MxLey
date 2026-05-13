@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Send, Clock } from "lucide-react";
-import { STATUS_LABELS, STATUS_COLORS, STATUS_CLIENT_MESSAGES, OPERATIONAL_STATUSES, type OperationalStatus } from "@/lib/admin";
+import { STATUS_LABELS, STATUS_COLORS, STATUS_CLIENT_MESSAGES, OPERATIONAL_STATUSES, type OperationalStatus } from "@/lib/admin-constants";
 
 interface StatusHistory {
   id:           string;

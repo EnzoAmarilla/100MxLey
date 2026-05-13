@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Truck, Package, CheckCircle, XCircle, AlertTriangle, Clock, Activity, Users, ChevronRight,
 } from "lucide-react";
-import { STATUS_LABELS, type OperationalStatus } from "@/lib/admin";
+import { STATUS_LABELS, type OperationalStatus } from "@/lib/admin-constants";
 import { useAdminClient } from "@/contexts/admin-client";
 
 const PERIODS = ["today", "7d", "30d", "all"] as const;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Package, Truck, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown, ChevronUp, Lock } from "lucide-react";
-import { STATUS_LABELS, STATUS_COLORS, STATUS_CLIENT_MESSAGES, type OperationalStatus } from "@/lib/admin";
+import { STATUS_LABELS, STATUS_COLORS, STATUS_CLIENT_MESSAGES, type OperationalStatus } from "@/lib/admin-constants";
 
 interface StatusHistory {
   id:         string;
