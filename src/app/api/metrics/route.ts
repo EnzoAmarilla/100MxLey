@@ -106,7 +106,7 @@ export async function GET(req: Request) {
   // Platform breakdown
   const platformCounts: Record<string, { orders: number; revenue: number }> = {};
   orders.forEach((o) => {
-    const p = o.store.platform;
+    const p = o.store?.platform ?? "unknown";
     if (!platformCounts[p]) platformCounts[p] = { orders: 0, revenue: 0 };
     platformCounts[p].orders++;
     platformCounts[p].revenue += o.totalAmount;
