@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { syncTiendanubeOrders } from "@/lib/tiendanube-sync";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -95,14 +94,7 @@ export async function GET(req: Request) {
       }
     );
 
-    // Fire-and-forget sync — don't await so Vercel doesn't time out before redirecting
-    prisma.store
-      .findFirst({ where: { userId: session.user.id, platform: "tiendanube" } })
-      .then((savedStore) => {
-        if (savedStore) syncTiendanubeOrders(savedStore, session.user.id).catch(() => {});
-      })
-      .catch(() => {});
-
+    // Sync is triggered client-side after the redirect to avoid Vercel Lambda timeout
     return NextResponse.redirect(new URL("/integrations?connected=tiendanube", req.url));
   } catch {
     return NextResponse.redirect(new URL("/integrations?error=unknown", req.url));

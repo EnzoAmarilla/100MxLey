@@ -39,7 +39,7 @@ export default function IntegrationsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (): Promise<void> => {
     try {
       const res = await fetch("/api/integrations/status");
       const data = await res.json();
@@ -55,12 +55,20 @@ export default function IntegrationsPage() {
     fetchStatus();
   }, []);
 
-  // Show toast from OAuth redirect params and clean the URL without triggering a Next.js navigation
+  // Show toast from OAuth redirect params, auto-sync, and clean the URL
   useEffect(() => {
     if (connected) {
       setToast({ type: "success", message: "¡Tienda conectada exitosamente!" });
-      fetchStatus();
       window.history.replaceState(null, "", "/integrations");
+
+      // Fetch status first so the card flips to "Conectado", then auto-sync
+      fetchStatus().then(() => {
+        setActionLoading("tiendanube_sync");
+        fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+          .then(() => fetchStatus())
+          .catch(() => {})
+          .finally(() => setActionLoading(null));
+      });
     } else if (errorParam) {
       const msg =
         errorParam === "token_failed"
