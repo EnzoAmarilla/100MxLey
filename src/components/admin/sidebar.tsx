@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
-  Package,
   LogOut,
   Truck,
   Users,
@@ -33,6 +33,14 @@ interface Props {
 
 export function AdminSidebar({ session }: Props) {
   const pathname = usePathname();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/admin/pending-count")
+      .then((r) => r.json())
+      .then((d) => setPendingCount(d.count ?? 0))
+      .catch(() => {});
+  }, []);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 flex flex-col border-r border-amber-900/30 bg-[#0c0a07]">
@@ -62,6 +70,7 @@ export function AdminSidebar({ session }: Props) {
           const isActive = item.href === "/admin"
             ? pathname === "/admin"
             : pathname === item.href || pathname.startsWith(item.href + "/");
+          const showBadge = item.href === "/admin/clients" && pendingCount > 0;
 
           return (
             <Link
@@ -74,7 +83,12 @@ export function AdminSidebar({ session }: Props) {
               }`}
             >
               <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "drop-shadow-[0_0_6px_#F59E0B]" : ""}`} />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-black">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           );
         })}
