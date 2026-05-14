@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
     for (const order of orders) {
       try {
-        if (order.store.platform === "tiendanube") {
+        if (order.store?.platform === "tiendanube") {
           // Mark as shipped in Tiendanube - triggers native email
           await fetch(
             `https://api.tiendanube.com/v1/${order.store.storeId}/orders/${order.externalId}/fulfill`,
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
               }),
             }
           );
-        } else if (order.store.platform === "shopify") {
+        } else if (order.store?.platform === "shopify") {
           // Create fulfillment in Shopify
           await fetch(
             `https://${order.store.domain}/admin/api/2024-01/orders/${order.externalId}/fulfillments.json`,
