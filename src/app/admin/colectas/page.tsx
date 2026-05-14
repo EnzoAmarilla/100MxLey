@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Truck, Search, Filter, X, ChevronDown, Clock, Package, MapPin,
-  Calendar, User, AlertCircle, CheckCircle, XCircle, RotateCcw,
+  Truck, Search, Filter, X, ChevronDown, Package, MapPin,
+  Calendar, User, CheckCircle, XCircle, RotateCcw, Bell, UserCheck,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -295,6 +295,100 @@ function DetailModal({ req, onClose, onRefresh }: { req: DetailData; onClose: ()
   );
 }
 
+interface PendingUser {
+  id: string;
+  name: string;
+  email: string;
+  logisticsAccessRequestedAt: string | null;
+}
+
+function PendingRequestsPanel({ onUpdate }: { onUpdate: () => void }) {
+  const [users, setUsers] = useState<PendingUser[]>([]);
+  const [acting, setActing] = useState<string | null>(null);
+
+  const load = () => {
+    fetch("/api/admin/pending-requests")
+      .then((r) => r.json())
+      .then((d) => setUsers(d.users ?? []))
+      .catch(() => {});
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const enable = async (id: string) => {
+    setActing(id);
+    await fetch(`/api/admin/clients/${id}/logistics-access`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: true }),
+    });
+    load();
+    onUpdate();
+    setActing(null);
+  };
+
+  const dismiss = async (id: string) => {
+    setActing(id);
+    await fetch(`/api/admin/pending-requests/${id}`, { method: "DELETE" });
+    load();
+    onUpdate();
+    setActing(null);
+  };
+
+  if (users.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-amber-500/20">
+        <Bell className="h-4 w-4 text-amber-400" />
+        <span className="text-sm font-semibold text-amber-300">
+          {users.length} solicitud{users.length !== 1 ? "es" : ""} de habilitación pendiente{users.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="divide-y divide-amber-500/10">
+        {users.map((u) => (
+          <div key={u.id} className="flex items-center gap-4 px-5 py-3.5">
+            <div className="h-9 w-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <User className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-zinc-200 truncate">{u.name}</p>
+              <p className="text-xs text-zinc-500 truncate">{u.email}</p>
+              {u.logisticsAccessRequestedAt && (
+                <p className="text-[10px] text-zinc-600 mt-0.5">
+                  Solicitado el {new Date(u.logisticsAccessRequestedAt).toLocaleString("es-AR")}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => enable(u.id)}
+                disabled={acting === u.id}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/25 disabled:opacity-40 transition-all"
+              >
+                {acting === u.id ? (
+                  <div className="h-3 w-3 border border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />
+                ) : (
+                  <UserCheck className="h-3.5 w-3.5" />
+                )}
+                Habilitar
+              </button>
+              <button
+                onClick={() => dismiss(u.id)}
+                disabled={acting === u.id}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/20 disabled:opacity-40 transition-all"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Rechazar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminColectasPage() {
   const [requests, setRequests] = useState<PickupRequest[]>([]);
   const [total, setTotal]       = useState(0);
@@ -303,6 +397,7 @@ export default function AdminColectasPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [selected, setSelected] = useState<DetailData | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [pendingKey, setPendingKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -361,6 +456,9 @@ export default function AdminColectasPage() {
         </div>
         <p className="text-sm text-zinc-400">Solicitudes de retiro de paquetes de los clientes.</p>
       </div>
+
+      {/* Pending access requests panel */}
+      <PendingRequestsPanel key={pendingKey} onUpdate={() => setPendingKey((k) => k + 1)} />
 
       {/* Métricas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   await prisma.user.update({
     where: { id: params.id },
     data: enabled
-      ? { logisticsAccessEnabled: true,  logisticsAccessEnabledAt:  now, logisticsAccessEnabledById:  admin.id }
+      ? { logisticsAccessEnabled: true,  logisticsAccessEnabledAt:  now, logisticsAccessEnabledById:  admin.id, logisticsAccessRequested: false, logisticsAccessRequestedAt: null }
       : { logisticsAccessEnabled: false, logisticsAccessDisabledAt: now, logisticsAccessDisabledById: admin.id },
   });
 
