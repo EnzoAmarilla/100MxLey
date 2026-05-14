@@ -14,7 +14,7 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
 interface IntegrationStatus {
@@ -31,7 +31,6 @@ interface StatusResponse {
 
 export default function IntegrationsPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const connected = searchParams.get("connected");
   const errorParam = searchParams.get("error");
 
@@ -56,12 +55,12 @@ export default function IntegrationsPage() {
     fetchStatus();
   }, []);
 
-  // Show toast from OAuth redirect params and clean the URL
+  // Show toast from OAuth redirect params and clean the URL without triggering a Next.js navigation
   useEffect(() => {
     if (connected) {
       setToast({ type: "success", message: "¡Tienda conectada exitosamente!" });
       fetchStatus();
-      router.replace("/integrations");
+      window.history.replaceState(null, "", "/integrations");
     } else if (errorParam) {
       const msg =
         errorParam === "token_failed"
@@ -70,7 +69,7 @@ export default function IntegrationsPage() {
           ? "No se recibió el código de autorización."
           : "Ocurrió un error inesperado al conectar.";
       setToast({ type: "error", message: msg });
-      router.replace("/integrations");
+      window.history.replaceState(null, "", "/integrations");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, errorParam]);
