@@ -95,15 +95,15 @@ export async function GET(req: Request) {
       }
     );
 
-    // Auto-sync orders on first connection
-    const savedStore = await prisma.store.findFirst({
-      where: { userId: session.user.id, platform: "tiendanube" },
-    });
-    if (savedStore) {
-      await syncTiendanubeOrders(savedStore, session.user.id).catch(() => {});
-    }
+    // Fire-and-forget sync — don't await so Vercel doesn't time out before redirecting
+    prisma.store
+      .findFirst({ where: { userId: session.user.id, platform: "tiendanube" } })
+      .then((savedStore) => {
+        if (savedStore) syncTiendanubeOrders(savedStore, session.user.id).catch(() => {});
+      })
+      .catch(() => {});
 
-    return NextResponse.redirect(new URL("/integrations?connected=true", req.url));
+    return NextResponse.redirect(new URL("/integrations?connected=tiendanube", req.url));
   } catch {
     return NextResponse.redirect(new URL("/integrations?error=unknown", req.url));
   }

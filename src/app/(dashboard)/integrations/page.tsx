@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  ShoppingBag, 
-  Store, 
-  CheckCircle2, 
-  XCircle, 
-  RefreshCcw, 
-  Unlink, 
+import {
+  ShoppingBag,
+  Store,
+  CheckCircle2,
+  XCircle,
+  RefreshCcw,
+  Unlink,
   ExternalLink,
   Loader2,
   AlertCircle
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
 interface IntegrationStatus {
@@ -31,12 +31,14 @@ interface StatusResponse {
 
 export default function IntegrationsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const connected = searchParams.get("connected");
   const errorParam = searchParams.get("error");
 
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchStatus = async () => {
     try {
@@ -53,6 +55,32 @@ export default function IntegrationsPage() {
   useEffect(() => {
     fetchStatus();
   }, []);
+
+  // Show toast from OAuth redirect params and clean the URL
+  useEffect(() => {
+    if (connected) {
+      setToast({ type: "success", message: "¡Tienda conectada exitosamente!" });
+      fetchStatus();
+      router.replace("/integrations");
+    } else if (errorParam) {
+      const msg =
+        errorParam === "token_failed"
+          ? "Error al obtener el token de acceso."
+          : errorParam === "no_code"
+          ? "No se recibió el código de autorización."
+          : "Ocurrió un error inesperado al conectar.";
+      setToast({ type: "error", message: msg });
+      router.replace("/integrations");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, errorParam]);
+
+  // Auto-dismiss toast after 5 s
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const handleConnectTiendanube = async () => {
     setActionLoading("tiendanube_connect");
@@ -113,19 +141,20 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
-      {connected && (
-        <div className="flex items-center gap-3 rounded-xl border border-neon-green/30 bg-neon-green/5 p-4 text-neon-green animate-in zoom-in-95 duration-300">
-          <CheckCircle2 className="h-5 w-5" />
-          <p className="text-sm font-medium">¡Tienda conectada exitosamente!</p>
-        </div>
-      )}
-
-      {errorParam && (
-        <div className="flex items-center gap-3 rounded-xl border border-neon-red/30 bg-neon-red/5 p-4 text-neon-red animate-in zoom-in-95 duration-300">
-          <AlertCircle className="h-5 w-5" />
-          <p className="text-sm font-medium">
-            {errorParam === "token_failed" ? "Error al obtener el token de acceso." : "Ocurrió un error inesperado al conectar."}
-          </p>
+      {toast && (
+        <div
+          className={`flex items-center gap-3 rounded-xl border p-4 animate-in zoom-in-95 duration-300 ${
+            toast.type === "success"
+              ? "border-neon-green/30 bg-neon-green/5 text-neon-green"
+              : "border-neon-red/30 bg-neon-red/5 text-neon-red"
+          }`}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 shrink-0" />
+          )}
+          <p className="text-sm font-medium">{toast.message}</p>
         </div>
       )}
 
