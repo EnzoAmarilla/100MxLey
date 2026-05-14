@@ -13,6 +13,7 @@ export async function POST() {
     data: {
       logisticsAccessRequested: true,
       logisticsAccessRequestedAt: new Date(),
+      logisticsAccessDeniedAt: null,
     },
   });
 

@@ -10,7 +10,11 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 
   await prisma.user.updateMany({
     where: { id: params.id, role: "CLIENT" },
-    data: { logisticsAccessRequested: false, logisticsAccessRequestedAt: null },
+    data: {
+      logisticsAccessRequested: false,
+      logisticsAccessRequestedAt: null,
+      logisticsAccessDeniedAt: new Date(),
+    },
   });
 
   return NextResponse.json({ success: true });

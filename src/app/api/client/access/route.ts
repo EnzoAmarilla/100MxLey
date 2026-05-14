@@ -10,11 +10,16 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { logisticsAccessEnabled: true, logisticsAccessRequested: true },
+    select: {
+      logisticsAccessEnabled: true,
+      logisticsAccessRequested: true,
+      logisticsAccessDeniedAt: true,
+    },
   });
-  
-  return NextResponse.json({ 
+
+  return NextResponse.json({
     logisticsEnabled: user?.logisticsAccessEnabled ?? false,
-    logisticsRequested: user?.logisticsAccessRequested ?? false
+    logisticsRequested: user?.logisticsAccessRequested ?? false,
+    logisticsDenied: !!user?.logisticsAccessDeniedAt,
   });
 }

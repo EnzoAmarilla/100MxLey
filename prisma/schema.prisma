@@ -92,6 +92,7 @@ model user {
   logisticsAccessDisabledById String?
   logisticsAccessRequested      Boolean                  @default(false)
   logisticsAccessRequestedAt    DateTime?
+  logisticsAccessDeniedAt       DateTime?
   order                       order[]
   ordersLastUpdated           order[]                  @relation("OrderLastUpdater")
   orderStatusHistory          orderStatusHistory[]     @relation("OrderStatusHistoryChanger")

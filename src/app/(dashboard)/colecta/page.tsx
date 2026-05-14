@@ -89,6 +89,7 @@ export default function ColectaPage() {
   const [toast, setToast]     = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
+  const [isDenied, setIsDenied] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export default function ColectaPage() {
       .then((d) => {
         setHasAccess(d.logisticsEnabled ?? false);
         setHasRequested(d.logisticsRequested ?? false);
+        setIsDenied(d.logisticsDenied ?? false);
       })
       .catch(() => setHasAccess(false));
   }, []);
@@ -106,6 +108,7 @@ export default function ColectaPage() {
     try {
       await fetch("/api/client/request-logistics", { method: "POST" });
       setHasRequested(true);
+      setIsDenied(false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -161,10 +164,12 @@ export default function ColectaPage() {
           <Lock className="h-8 w-8 text-[var(--text-secondary)]" />
         </div>
         <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
-          {hasRequested ? "Solicitud enviada" : "Acceso pendiente de habilitación"}
+          {isDenied ? "Solicitud rechazada" : hasRequested ? "Solicitud enviada" : "Acceso pendiente de habilitación"}
         </h2>
         <p className="text-sm text-[var(--text-secondary)] max-w-sm mb-6">
-          {hasRequested
+          {isDenied
+            ? "Tu solicitud no fue aprobada en este momento. Podés volver a solicitarla cuando estés listo."
+            : hasRequested
             ? "Tu solicitud está siendo procesada por nuestro equipo. Te avisaremos cuando esté lista."
             : "Esta sección será habilitada por el equipo de 100Mxley cuando tu cuenta esté lista para operar con logística."}
         </p>
@@ -174,7 +179,7 @@ export default function ColectaPage() {
             disabled={requesting}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-sm font-medium hover:bg-neon-cyan/20 disabled:opacity-50 transition-all"
           >
-            {requesting ? "Enviando…" : "Solicitar habilitación"}
+            {requesting ? "Enviando…" : isDenied ? "Volver a solicitar" : "Solicitar habilitación"}
           </button>
         )}
       </div>
