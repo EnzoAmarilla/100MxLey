@@ -48,19 +48,24 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     total,
-    orders: orders.map((o) => ({
-      id:               o.id,
-      externalId:       o.externalId,
-      buyerName:        o.buyerName,
-      buyerEmail:       o.buyerEmail,
-      status:           o.status,
-      operationalStatus: o.operationalStatus,
-      totalAmount:      o.totalAmount,
-      createdAt:        o.createdAt,
-      clientName:       o.user?.name  ?? "—",
-      clientEmail:      o.user?.email ?? "—",
-      lastUpdatedBy:    o.lastUpdatedByUser?.name ?? null,
-      trackingCode:     o.trackingCode,
-    })),
+    orders: orders.map((o) => {
+      const raw = o.rawPayload as any;
+      return {
+        id:                 o.id,
+        externalId:         o.externalId,
+        buyerName:          o.buyerName,
+        buyerEmail:         o.buyerEmail,
+        address:            o.address,
+        status:             o.status,
+        operationalStatus:  o.operationalStatus,
+        totalAmount:        o.totalAmount,
+        createdAt:          o.createdAt,
+        clientName:         o.user?.name  ?? "—",
+        clientEmail:        o.user?.email ?? "—",
+        lastUpdatedBy:      o.lastUpdatedByUser?.name ?? null,
+        trackingCode:       o.trackingCode,
+        shippingOptionName: raw?.shipping_option?.name ?? null,
+      };
+    }),
   });
 }

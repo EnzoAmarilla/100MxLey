@@ -16,14 +16,15 @@ type Provider     = "andreani" | "correo_argentino" | "";
 type AndreaniType = "domicilio" | "sucursal";
 
 interface Order {
-  id:           string;
-  externalId:   string;
-  buyerName:    string;
-  buyerEmail:   string;
-  address:      any;
-  status:       string;
-  totalAmount:  number;
-  createdAt:    string;
+  id:                 string;
+  externalId:         string;
+  buyerName:          string;
+  buyerEmail:         string;
+  address:            any;
+  status:             string;
+  totalAmount:        number;
+  createdAt:          string;
+  shippingOptionName: string | null;
 }
 
 const pad    = (n: number) => String(n).padStart(2, "0");
@@ -44,6 +45,27 @@ function hasFullAddress(addr: unknown): boolean {
     const a = typeof addr === "string" ? JSON.parse(addr) : addr ?? {};
     return !!(a.street && a.number && (a.city || a.locality) && a.province && (a.zipcode || a.zip));
   } catch { return false; }
+}
+
+function matchesProvider(
+  shippingOptionName: string | null | undefined,
+  addr: unknown,
+  provider: Provider,
+  andreaniType: AndreaniType,
+): boolean {
+  if (!provider) return true;
+  const name = (shippingOptionName ?? "").toLowerCase().trim();
+  if (provider === "andreani") {
+    if (!name) return andreaniType === "sucursal" ? true : hasFullAddress(addr);
+    if (!name.includes("andreani")) return false;
+    if (andreaniType === "sucursal") return name.includes("sucursal");
+    return !name.includes("sucursal");
+  }
+  if (provider === "correo_argentino") {
+    if (!name) return hasFullAddress(addr);
+    return name.includes("correo");
+  }
+  return true;
 }
 
 function downloadCSV(filename: string, content: string) {
@@ -210,11 +232,9 @@ export default function AdminLogisticsExportPage() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const filteredOrders = orders.filter((o) => {
-    if (!provider) return true;
-    if (provider === "andreani" && andreaniType === "sucursal") return true;
-    return hasFullAddress(o.address);
-  });
+  const filteredOrders = orders.filter((o) =>
+    matchesProvider(o.shippingOptionName, o.address, provider, andreaniType)
+  );
   const hiddenCount = orders.length - filteredOrders.length;
 
   const canValidate = selected.size > 0 && !!provider && (provider !== "andreani" || !!andreaniType);
@@ -324,7 +344,7 @@ export default function AdminLogisticsExportPage() {
           <div className="ml-auto flex items-center gap-2">
             {hiddenCount > 0 && (
               <span className="text-xs text-neon-yellow/80 bg-neon-yellow/5 border border-neon-yellow/20 px-2.5 py-0.5 rounded-full">
-                {hiddenCount} sin dirección oculto{hiddenCount !== 1 ? "s" : ""}
+                {hiddenCount} oculto{hiddenCount !== 1 ? "s" : ""} (otro tipo de envío)
               </span>
             )}
             {selected.size > 0 && (
@@ -362,7 +382,7 @@ export default function AdminLogisticsExportPage() {
                         : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                     </button>
                   </th>
-                  {["# Pedido","Fecha","Comprador","Dirección","Estado","Total"].map((h) => (
+                  {["# Pedido","Fecha","Comprador","Dirección","Envío","Estado","Total"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">{h}</th>
                   ))}
                 </tr>
@@ -370,7 +390,7 @@ export default function AdminLogisticsExportPage() {
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <td colSpan={8} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                       <div className="flex flex-col items-center gap-2">
                         <Package className="h-8 w-8 opacity-20" />
                         <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para este cliente"}</span>
@@ -394,6 +414,9 @@ export default function AdminLogisticsExportPage() {
                       <div className="text-[10px] text-[var(--text-secondary)]">{order.buyerEmail}</div>
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">{parseAddress(order.address)}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)] max-w-[11rem]">
+                      <span className="block truncate">{order.shippingOptionName ?? "—"}</span>
+                    </td>
                     <td className="px-4 py-3">
                       {order.status === "ready_to_ship"       && <Badge variant="cyan">Por enviar</Badge>}
                       {order.status === "listo_para_despachar" && <Badge variant="cyan">Listo</Badge>}
