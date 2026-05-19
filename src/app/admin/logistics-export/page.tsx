@@ -39,6 +39,13 @@ function parseAddress(addr: unknown): string {
   } catch { return "—"; }
 }
 
+function hasFullAddress(addr: unknown): boolean {
+  try {
+    const a = typeof addr === "string" ? JSON.parse(addr) : addr ?? {};
+    return !!(a.street && a.number && (a.city || a.locality) && a.province && (a.zipcode || a.zip));
+  } catch { return false; }
+}
+
 function downloadCSV(filename: string, content: string) {
   const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
@@ -111,8 +118,8 @@ export default function AdminLogisticsExportPage() {
   }, [selected, provider, andreaniType, branchCode, branchName]);
 
   const toggleAll = () => {
-    if (selected.size === orders.length && orders.length > 0) setSelected(new Set());
-    else setSelected(new Set(orders.map((o) => o.id)));
+    if (selected.size === filteredOrders.length && filteredOrders.length > 0) setSelected(new Set());
+    else setSelected(new Set(filteredOrders.map((o) => o.id)));
   };
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -201,7 +208,15 @@ export default function AdminLogisticsExportPage() {
     setDateFrom(fmt(f)); setDateTo(fmt(today));
   };
 
-  const totalPages  = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const filteredOrders = orders.filter((o) => {
+    if (!provider) return true;
+    if (provider === "andreani" && andreaniType === "sucursal") return true;
+    return hasFullAddress(o.address);
+  });
+  const hiddenCount = orders.length - filteredOrders.length;
+
   const canValidate = selected.size > 0 && !!provider && (provider !== "andreani" || !!andreaniType);
   const canExport   = canValidate && validationPassed;
 
@@ -306,11 +321,18 @@ export default function AdminLogisticsExportPage() {
         <div className="flex items-center gap-2">
           <span className="h-5 w-5 rounded-full bg-neon-cyan/20 border border-neon-cyan/40 flex items-center justify-center text-[10px] font-bold text-neon-cyan">2</span>
           <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Pedidos</h2>
-          {selected.size > 0 && (
-            <span className="ml-auto text-xs font-semibold text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 px-2.5 py-0.5 rounded-full">
-              {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {hiddenCount > 0 && (
+              <span className="text-xs text-neon-yellow/80 bg-neon-yellow/5 border border-neon-yellow/20 px-2.5 py-0.5 rounded-full">
+                {hiddenCount} sin dirección oculto{hiddenCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {selected.size > 0 && (
+              <span className="text-xs font-semibold text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 px-2.5 py-0.5 rounded-full">
+                {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -335,7 +357,7 @@ export default function AdminLogisticsExportPage() {
                 <tr className="border-b border-brand-border bg-brand-surface/80">
                   <th className="px-4 py-3 w-10">
                     <button onClick={toggleAll}>
-                      {selected.size === orders.length && orders.length > 0
+                      {selected.size === filteredOrders.length && filteredOrders.length > 0
                         ? <CheckSquare className="h-4 w-4 text-neon-cyan" />
                         : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                     </button>
@@ -346,16 +368,16 @@ export default function AdminLogisticsExportPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                       <div className="flex flex-col items-center gap-2">
                         <Package className="h-8 w-8 opacity-20" />
-                        <span>No hay pedidos para este cliente</span>
+                        <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para este cliente"}</span>
                       </div>
                     </td>
                   </tr>
-                ) : orders.map((order) => (
+                ) : filteredOrders.map((order) => (
                   <tr key={order.id} onClick={() => toggle(order.id)}
                     className="border-b border-brand-border hover:bg-brand-surface/40 cursor-pointer transition-colors">
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
