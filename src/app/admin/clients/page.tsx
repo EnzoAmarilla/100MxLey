@@ -75,16 +75,18 @@ export default function AdminClientsPage() {
   const toggleLogistics = async (clientId: string, enable: boolean, reason?: string) => {
     setToggling(clientId);
     try {
-      await fetch(`/api/admin/clients/${clientId}/logistics-access`, {
+      const res = await fetch(`/api/admin/clients/${clientId}/logistics-access`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: enable, reason }),
       });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       setClients((prev) =>
         prev.map((c) => c.id === clientId ? { ...c, logisticsAccessEnabled: enable } : c)
       );
-    } catch {
-      // silently fail; user can refresh
+    } catch (err) {
+      console.error("[toggleLogistics]", err);
+      alert("No se pudo actualizar el acceso. Intentá de nuevo.");
     } finally {
       setToggling(null);
       setConfirmDisable(null);

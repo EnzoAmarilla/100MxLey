@@ -13,6 +13,6 @@ export type { OperationalStatus } from "./admin-constants";
 export async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
-  if (session.user.role !== "ADMIN" && session.user.role !== "SUPERADMIN") return null;
+  if (!["ADMIN", "SUPERADMIN", "STAFF"].includes(session.user.role ?? "")) return null;
   return session.user;
 }
