@@ -83,7 +83,7 @@ export function normalizeOrderForLogistics(order: any): NormalizedOrder {
     widthCm:       0,
     lengthCm:      0,
     declaredValue: order.totalAmount ?? 0,
-    shippingMethod: raw?.shipping_option?.name ?? "",
+    shippingMethod: (typeof raw?.shipping_option === "string" ? raw.shipping_option : raw?.shipping_option?.name) ?? "",
     branchCode:    "",
     branchName:    "",
     reference:     order.externalId,

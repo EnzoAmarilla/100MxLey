@@ -64,7 +64,7 @@ export async function GET(req: Request) {
         clientEmail:        o.user?.email ?? "—",
         lastUpdatedBy:      o.lastUpdatedByUser?.name ?? null,
         trackingCode:       o.trackingCode,
-        shippingOptionName: raw?.shipping_option?.name ?? null,
+        shippingOptionName: (typeof raw?.shipping_option === "string" ? raw.shipping_option : raw?.shipping_option?.name) ?? null,
       };
     }),
   });

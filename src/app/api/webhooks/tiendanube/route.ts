@@ -67,7 +67,7 @@ export async function POST(req: Request) {
           country: orderData.shipping_address?.country || "AR",
         }),
         products: JSON.stringify(products),
-        courier: orderData.shipping_option?.name || null,
+        courier: (typeof orderData.shipping_option === "string" ? orderData.shipping_option : orderData.shipping_option?.name) || null,
         status: orderData.status || "paid",
         totalAmount: parseFloat(orderData.total) || 0,
       },
