@@ -19,6 +19,7 @@ import {
   PackagePlus,
   ListChecks,
   Lock,
+  FileDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavProgress } from "@/components/layout/nav-progress";
@@ -73,9 +74,10 @@ const navItems = [
   },
   { label: "Stock",               href: "/stock",        icon: Package,    logisticsGated: false },
   { label: "Créditos",            href: "/credits",      icon: Coins,      logisticsGated: false },
-  { label: "Pedidos / Logística", href: "/logistics",    icon: Truck,      logisticsGated: true },
-  { label: "Pedido de colecta",   href: "/colecta",      icon: PackagePlus, logisticsGated: true },
-  { label: "Mis colectas",        href: "/mis-colectas", icon: ListChecks, logisticsGated: true },
+  { label: "Pedidos / Logística", href: "/logistics",        icon: Truck,      logisticsGated: true },
+  { label: "Exportar a logística",href: "/logistics-export", icon: FileDown,   logisticsGated: true },
+  { label: "Pedido de colecta",   href: "/colecta",          icon: PackagePlus, logisticsGated: true },
+  { label: "Mis colectas",        href: "/mis-colectas",     icon: ListChecks, logisticsGated: true },
   { label: "Ver tutorial",        href: "/tutorials",    icon: PlayCircle, logisticsGated: false },
 ];
 
