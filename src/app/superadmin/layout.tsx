@@ -14,8 +14,8 @@ export default async function SuperAdminLayout({ children }: { children: React.R
   return (
     <div className="min-h-screen bg-brand-bg">
       <SuperAdminSidebar />
-      <div className="ml-64">
-        <main className="p-6 min-h-screen">{children}</main>
+      <div className="lg:ml-64">
+        <main className="p-4 sm:p-6 min-h-screen">{children}</main>
       </div>
     </div>
   );

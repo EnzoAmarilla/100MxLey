@@ -97,31 +97,31 @@ export function OrderFilters({
             {p.label}
           </button>
         ))}
+      </div>
 
-        {/* Manual date inputs */}
-        <div className="flex items-center gap-2 ml-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => handleManualFrom(e.target.value)}
-            className="w-36 h-7 text-xs"
-          />
-          <span className="text-[var(--text-secondary)] text-xs">–</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => handleManualTo(e.target.value)}
-            className="w-36 h-7 text-xs"
-          />
-        </div>
+      {/* Manual date inputs — stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <Input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => handleManualFrom(e.target.value)}
+          className="w-full sm:w-36 h-8 text-xs"
+        />
+        <span className="text-[var(--text-secondary)] text-xs hidden sm:inline">–</span>
+        <Input
+          type="date"
+          value={dateTo}
+          onChange={(e) => handleManualTo(e.target.value)}
+          className="w-full sm:w-36 h-8 text-xs"
+        />
       </div>
 
       {/* Status + courier row */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <select
           value={status}
           onChange={(e) => onStatusChange(e.target.value)}
-          className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-brand-accent focus:outline-none"
+          className="w-full sm:w-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-brand-accent focus:outline-none"
         >
           <option value="">Todos los estados</option>
           <option value="pending">Por cobrar</option>
@@ -136,7 +136,7 @@ export function OrderFilters({
           value={courier}
           onChange={(e) => onCourierChange(e.target.value)}
           placeholder="Courier..."
-          className="w-40"
+          className="w-full sm:w-40"
         />
       </div>
     </div>

@@ -19,7 +19,7 @@ export function Header() {
   }, [session]);
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-brand-border bg-brand-bg/80 backdrop-blur-md flex items-center justify-between px-6">
+    <header className="sticky top-0 z-30 h-14 border-b border-brand-border bg-brand-bg/80 backdrop-blur-md flex items-center justify-between pl-16 pr-4 lg:px-6">
       <div className="flex items-center gap-2">
         <div className="h-1.5 w-1.5 rounded-full bg-neon-green animate-pulse" />
         <span className="text-xs text-[var(--text-secondary)] tracking-widest uppercase">Online</span>
