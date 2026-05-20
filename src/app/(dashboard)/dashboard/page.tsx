@@ -54,14 +54,16 @@ export default function DashboardPage() {
   const [credits, setCredits]   = useState(0);
   const [consumed, setConsumed] = useState(0);
 
-  const [tnConnected, setTnConnected]   = useState(false);
-  const [tnStoreName, setTnStoreName]   = useState("");
-  const [tnIngresos, setTnIngresos]     = useState(0);
-  const [tnShipping, setTnShipping]     = useState(0);
-  const [tnNet, setTnNet]               = useState(0);
-  const [tnTotal, setTnTotal]           = useState(0);
-  const [syncing, setSyncing]           = useState(false);
-  const [syncMsg, setSyncMsg]           = useState("");
+  const [tnConnected, setTnConnected]     = useState(false);
+  const [tnStoreName, setTnStoreName]     = useState("");
+  const [tnIngresos, setTnIngresos]       = useState(0);
+  const [tnShipping, setTnShipping]       = useState(0);
+  const [tnNet, setTnNet]                 = useState(0);
+  const [tnTotal, setTnTotal]             = useState(0);
+  // null = loading, true = has orders, false = no orders yet
+  const [tnHasAnyOrders, setTnHasAnyOrders] = useState<boolean | null>(null);
+  const [syncing, setSyncing]             = useState(false);
+  const [syncMsg, setSyncMsg]             = useState("");
 
   const [toPay, setToPay]             = useState(0);
   const [toPack, setToPack]           = useState(0);
@@ -97,6 +99,15 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
+  // Check if ANY orders exist (no date filter) — drives the "sync now" banner
+  useEffect(() => {
+    if (!tnConnected) return;
+    fetch("/api/orders?platform=tiendanube&page=0")
+      .then((r) => r.json())
+      .then((d) => setTnHasAnyOrders((d.total ?? 0) > 0))
+      .catch(() => setTnHasAnyOrders(false));
+  }, [tnConnected]);
+
   const fetchMetrics = useCallback((p: PeriodId) => {
     const { dateFrom, dateTo } = periodToRange(p);
     // Reuse /api/orders — already has timezone-correct filtering, statusCounts, and revenue aggregates
@@ -130,17 +141,29 @@ export default function DashboardPage() {
   const handleSync = async () => {
     setSyncing(true);
     setSyncMsg("");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55_000);
     try {
-      const res = await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      const res = await fetch("/api/integrations/tiendanube/sync", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
       const data = await res.json();
       if (res.ok) {
         setSyncMsg(`✓ ${data.count} pedidos sincronizados`);
+        if (data.count > 0) setTnHasAnyOrders(true);
         fetchMetrics(period);
       } else {
-        setSyncMsg("Error al sincronizar. Intentá de nuevo.");
+        setSyncMsg(data.detail ?? "Error al sincronizar. Intentá de nuevo.");
       }
-    } catch {
-      setSyncMsg("Error al sincronizar. Intentá de nuevo.");
+    } catch (e: any) {
+      clearTimeout(timeout);
+      setSyncMsg(
+        e?.name === "AbortError"
+          ? "Tiempo de espera agotado. La sincronización puede continuar en segundo plano — recargá en un momento."
+          : "Error al sincronizar. Intentá de nuevo."
+      );
     } finally {
       setSyncing(false);
     }
@@ -198,23 +221,30 @@ export default function DashboardPage() {
           </p>
         </div>
       )}
-      {tnConnected && tnIngresos === 0 && (
+      {tnConnected && tnHasAnyOrders === false && (
         <div className="relative flex items-center justify-between gap-3 rounded-xl border border-neon-yellow/25 bg-neon-yellow/[0.04] px-4 py-3 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-yellow/40 to-transparent" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <AlertCircle className="h-4 w-4 text-neon-yellow shrink-0" />
-            <p className="text-xs text-[var(--text-secondary)]">
-              {syncMsg || "Tiendanube conectada pero sin datos. Sincronizá tus pedidos para ver las métricas."}
+            <p className="text-xs text-[var(--text-secondary)] truncate">
+              {syncMsg || "Tiendanube conectada pero sin pedidos. Sincronizá para importar tu historial."}
             </p>
           </div>
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-neon-yellow hover:underline disabled:opacity-50"
+            className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-neon-yellow hover:underline disabled:opacity-50 ml-3"
           >
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
             {syncing ? "Sincronizando..." : "Sincronizar ahora"}
           </button>
+        </div>
+      )}
+      {tnConnected && tnHasAnyOrders === true && syncMsg && (
+        <div className="relative flex items-center gap-3 rounded-xl border border-neon-green/25 bg-neon-green/[0.04] px-4 py-3 overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon-green/40 to-transparent" />
+          <CheckCircle className="h-4 w-4 text-neon-green shrink-0" />
+          <p className="text-xs text-neon-green font-medium">{syncMsg}</p>
         </div>
       )}
 
@@ -226,6 +256,16 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold text-neon-cyan tracking-widest uppercase">Tiendanube</span>
           </div>
           <div className="h-px flex-1 bg-gradient-to-r from-neon-cyan/20 to-transparent" />
+          {tnConnected && tnHasAnyOrders === true && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sincronizar pedidos"
+              className="p-1 rounded-md text-[var(--text-secondary)] hover:text-neon-cyan disabled:opacity-40 transition-colors"
+            >
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
+            </button>
+          )}
           {tnConnected ? (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-neon-green/10 border border-neon-green/20">
               <div className="h-1.5 w-1.5 rounded-full bg-neon-green" />
