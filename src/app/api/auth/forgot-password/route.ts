@@ -8,7 +8,11 @@ import { Resend } from "resend";
 const TOKEN_TTL_HOURS = 1;
 
 export async function POST(req: Request) {
-  const BASE = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const BASE = (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXTAUTH_URL ??
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
 
   const { email } = await req.json().catch(() => ({}));
 
