@@ -502,7 +502,7 @@ export default function StockPage() {
                           <span className="font-mono text-neon-cyan/80 text-xs">{p.sku}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-[var(--text-primary)] text-xs font-medium whitespace-nowrap max-w-[200px] truncate">{p.name}</td>
+                      <td className="px-5 py-3.5 text-[var(--text-primary)] text-xs font-medium max-w-sm">{p.name}</td>
                       <td className="px-5 py-3.5 text-[var(--text-secondary)] text-xs">{p.category}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">

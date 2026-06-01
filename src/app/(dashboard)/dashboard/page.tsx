@@ -73,70 +73,95 @@ export default function DashboardPage() {
   const [cancelled, setCancelled]     = useState(0);
 
   const [period, setPeriod] = useState<PeriodId>("today");
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetch("/api/credits")
-      .then((r) => r.json())
-      .then((data) => {
-        setCredits(data.credits ?? 0);
-        const total = (data.transactions ?? [])
-          .filter((t: any) => t.type === "debit")
-          .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
-        setConsumed(total);
-      })
-      .catch(() => {});
+    setMounted(true);
   }, []);
 
-  useEffect(() => {
-    fetch("/api/integrations/status")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.tiendanube) {
-          setTnConnected(true);
-          setTnStoreName(data.tiendanube.storeName || "");
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Check if ANY orders exist (no date filter) — drives the "sync now" banner
-  useEffect(() => {
-    if (!tnConnected) return;
-    fetch("/api/orders?platform=tiendanube&page=0")
-      .then((r) => r.json())
-      .then((d) => setTnHasAnyOrders((d.total ?? 0) > 0))
-      .catch(() => setTnHasAnyOrders(false));
-  }, [tnConnected]);
-
-  const fetchMetrics = useCallback((p: PeriodId) => {
+  const fetchMetrics = useCallback(async (p: PeriodId) => {
     const { dateFrom, dateTo } = periodToRange(p);
-    // Reuse /api/orders — already has timezone-correct filtering, statusCounts, and revenue aggregates
     const params = new URLSearchParams({ platform: "tiendanube", page: "0" });
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo)   params.set("dateTo", dateTo);
 
-    fetch(`/api/orders?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setTnIngresos(data.totalRevenue  ?? 0);
-        setTnShipping(data.totalShipping ?? 0);
-        setTnNet(data.netRevenue         ?? 0);
-        setTnTotal(data.total            ?? 0);
-        const sc = data.statusCounts ?? {};
-        setToPay(sc.pending          ?? 0);
-        setToPack(sc.paid            ?? 0);
-        setReadyToShip(sc.ready_to_ship ?? 0);
-        setInTransit(sc.shipped      ?? 0);
-        setDelivered(sc.delivered    ?? 0);
-        setCancelled(sc.cancelled    ?? 0);
-      })
-      .catch(() => {});
+    try {
+      setMetricsLoading(true);
+      const res = await fetch(`/api/orders?${params}`);
+      const data = await res.json();
+      setTnIngresos(data.totalRevenue  ?? 0);
+      setTnShipping(data.totalShipping ?? 0);
+      setTnNet(data.netRevenue         ?? 0);
+      setTnTotal(data.total            ?? 0);
+      const sc = data.statusCounts ?? {};
+      setToPay(sc.pending          ?? 0);
+      setToPack(sc.paid            ?? 0);
+      setReadyToShip(sc.ready_to_ship ?? 0);
+      setInTransit(sc.shipped      ?? 0);
+      setDelivered(sc.delivered    ?? 0);
+      setCancelled(sc.cancelled    ?? 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setMetricsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (!tnConnected) return;
-    fetchMetrics(period);
-  }, [tnConnected, fetchMetrics, period]);
+    const init = async () => {
+      await Promise.all([
+        fetchMetrics(period),
+        fetch("/api/credits")
+          .then((r) => r.json())
+          .then((data) => {
+            setCredits(data.credits ?? 0);
+            const total = (data.transactions ?? [])
+              .filter((t: any) => t.type === "debit")
+              .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
+            setConsumed(total);
+          }),
+        fetch("/api/integrations/status")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.tiendanube) {
+              setTnConnected(true);
+              setTnStoreName(data.tiendanube.storeName || "");
+            }
+          }),
+        fetch("/api/orders?platform=tiendanube&page=0")
+          .then((r) => r.json())
+          .then((d) => setTnHasAnyOrders((d.total ?? 0) > 0))
+          .catch(() => setTnHasAnyOrders(false)),
+        // Enforce a minimum display time of 1.8 seconds so the spinner is clearly visible
+        new Promise((resolve) => setTimeout(resolve, 1800))
+      ]);
+      setInitialized(true);
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchMetrics]);
+
+  useEffect(() => {
+    if (initialized) {
+      fetchMetrics(period);
+    }
+  }, [period, fetchMetrics, initialized]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchMetrics(period);
+      fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+        .then((res) => {
+          if (res.ok) {
+            fetchMetrics(period);
+          }
+        })
+        .catch(() => {});
+    }, 90 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchMetrics, period]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -168,6 +193,25 @@ export default function DashboardPage() {
       setSyncing(false);
     }
   };
+
+  if (!mounted || !initialized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="relative flex items-center justify-center">
+          <div className="h-16 w-16 rounded-full border-4 border-neon-cyan/20 border-t-neon-cyan animate-spin" />
+          <Zap className="absolute h-6 w-6 text-neon-cyan animate-pulse drop-shadow-[0_0_8px_#00F5FF]" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-semibold tracking-wider text-neon-cyan uppercase animate-pulse">
+            Sincronizando panel
+          </p>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Cargando tus métricas en tiempo real...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -283,21 +327,25 @@ export default function DashboardPage() {
             label="Facturación"
             value={formatARS(tnIngresos)}
             change={0}
+            loading={metricsLoading}
           />
           <MetricCard
             label="Gastos de Envío"
             value={formatARS(tnShipping)}
             change={0}
+            loading={metricsLoading}
           />
           <MetricCard
             label="Ganancia Neta"
             value={formatARS(tnNet)}
             change={0}
+            loading={metricsLoading}
           />
           <MetricCard
             label="Pedidos"
             value={String(tnTotal)}
             change={0}
+            loading={metricsLoading}
           />
         </div>
       </div>
@@ -318,7 +366,11 @@ export default function DashboardPage() {
               <div className={`h-2 w-2 rounded-full ${c.dot}`} />
               <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">{c.label}</p>
             </div>
-            <p className={`text-3xl font-bold font-mono ${c.color}`}>{c.value}</p>
+            {metricsLoading ? (
+              <div className="h-9 w-14 rounded bg-brand-surface animate-pulse" />
+            ) : (
+              <p className={`text-3xl font-bold font-mono ${c.color}`}>{c.value}</p>
+            )}
             <p className="text-xs text-[var(--text-secondary)] mt-1">pedidos</p>
           </div>
         ))}

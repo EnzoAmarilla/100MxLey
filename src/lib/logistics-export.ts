@@ -128,14 +128,14 @@ export function validateOrderForExport(
 
 function escapeCSV(val: unknown): string {
   const s = String(val ?? "");
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+  if (s.includes(";") || s.includes('"') || s.includes("\n")) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
 }
 
 function csvRow(fields: unknown[]): string {
-  return fields.map(escapeCSV).join(",");
+  return fields.map(escapeCSV).join(";");
 }
 
 function buildCSV(headers: string[], rows: unknown[][]): string {

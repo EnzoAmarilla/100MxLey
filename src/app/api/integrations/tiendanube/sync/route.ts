@@ -14,7 +14,7 @@ export async function POST() {
   }
 
   try {
-    const store = await prisma.store.findFirst({
+    const stores = await prisma.store.findMany({
       where: {
         userId: session.user.id,
         platform: "tiendanube",
@@ -27,13 +27,18 @@ export async function POST() {
       },
     });
 
-    if (!store) {
+    if (stores.length === 0) {
       return NextResponse.json({ error: "Tienda no conectada" }, { status: 404 });
     }
 
-    const count = await syncTiendanubeOrders(store, session.user.id);
-    const incremental = store.lastSync !== null;
-    return NextResponse.json({ success: true, count, incremental });
+    const syncResults = await Promise.all(
+      stores.map((store) => syncTiendanubeOrders(store, session.user.id))
+    );
+
+    const totalCount = syncResults.reduce((sum, count) => sum + count, 0);
+    const incremental = stores.some((store) => store.lastSync !== null);
+    
+    return NextResponse.json({ success: true, count: totalCount, incremental });
   } catch (error: any) {
     console.error("[API_TIENDANUBE_SYNC]", error);
     return NextResponse.json({

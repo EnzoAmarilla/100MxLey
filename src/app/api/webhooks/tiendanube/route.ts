@@ -34,10 +34,14 @@ export async function POST(req: Request) {
     const orderData = await orderRes.json();
 
     const products = (orderData.products || []).map((p: any) => ({
-      name: p.name,
-      sku: p.sku || "N/A",
-      quantity: p.quantity,
-      price: p.price,
+      id: String(p.id || p.product_id || p.variant_id || randomUUID()),
+      name: p.name || "Producto sin nombre",
+      sku: p.sku || null,
+      quantity: Number(p.quantity) || 1,
+      price: parseFloat(p.price) || 0,
+      variant_values: Array.isArray(p.variant_values) && p.variant_values.length
+        ? p.variant_values
+        : undefined,
     }));
 
     await prisma.order.upsert({
