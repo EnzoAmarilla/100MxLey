@@ -270,31 +270,7 @@ export default function StockPage() {
     }
   }
 
-  // ── Field component ───────────────────────────────────────────────
-  function Field({
-    label, field, type = "text", placeholder = "",
-  }: {
-    label: string; field: keyof typeof emptyForm; type?: string; placeholder?: string;
-  }) {
-    return (
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">{label}</label>
-        <input
-          type={type}
-          value={form[field]}
-          onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-          placeholder={placeholder}
-          className={`w-full rounded-lg border bg-brand-surface px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/40 focus:outline-none transition-all ${
-            formErrors[field]
-              ? "border-neon-red/60 focus:border-neon-red"
-              : "border-brand-border focus:border-neon-cyan/50 focus:shadow-[0_0_0_1px_rgba(0,245,255,0.12)]"
-          }`}
-        />
-        {formErrors[field] && <p className="text-xs text-neon-red">{formErrors[field]}</p>}
-      </div>
-    );
-  }
-
+  // ── Standalone Field component definition moved outside to avoid unmounting on typing ──
   const thBtn = (key: SortKey, label: string) => (
     <th
       className="px-5 py-3 text-left text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)] whitespace-nowrap cursor-pointer select-none hover:text-[var(--text-primary)] transition-colors"
@@ -601,7 +577,7 @@ export default function StockPage() {
 
             <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
-                <Field label="SKU" field="sku" placeholder="Ej: CAM-BLA-XL" />
+                <Field label="SKU" field="sku" placeholder="Ej: CAM-BLA-XL" form={form} setForm={setForm} formErrors={formErrors} />
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">Categoría</label>
                   <select
@@ -614,21 +590,21 @@ export default function StockPage() {
                 </div>
               </div>
 
-              <Field label="Nombre del producto" field="name" placeholder="Ej: Camiseta blanca talle XL" />
+              <Field label="Nombre del producto" field="name" placeholder="Ej: Camiseta blanca talle XL" form={form} setForm={setForm} formErrors={formErrors} />
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Stock actual" field="stock" type="number" placeholder="0" />
-                <Field label="Stock mínimo" field="minStock" type="number" placeholder="5" />
+                <Field label="Stock actual" field="stock" type="number" placeholder="0" form={form} setForm={setForm} formErrors={formErrors} />
+                <Field label="Stock mínimo" field="minStock" type="number" placeholder="5" form={form} setForm={setForm} formErrors={formErrors} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Costo unitario ($)" field="costPrice" type="number" placeholder="3200" />
-                <Field label="Precio de venta ($)" field="salePrice" type="number" placeholder="8500" />
+                <Field label="Costo unitario ($)" field="costPrice" type="number" placeholder="3200" form={form} setForm={setForm} formErrors={formErrors} />
+                <Field label="Precio de venta ($)" field="salePrice" type="number" placeholder="8500" form={form} setForm={setForm} formErrors={formErrors} />
               </div>
 
-              <Field label="Precio promocional ($) — opcional" field="promoPrice" type="number" placeholder="Sin promoción" />
+              <Field label="Precio promocional ($) — opcional" field="promoPrice" type="number" placeholder="Sin promoción" form={form} setForm={setForm} formErrors={formErrors} />
 
-              <Field label="Vendidos este mes" field="soldMonth" type="number" placeholder="0" />
+              <Field label="Vendidos este mes" field="soldMonth" type="number" placeholder="0" form={form} setForm={setForm} formErrors={formErrors} />
 
               {form.costPrice && form.salePrice && Number(form.salePrice) > 0 && (
                 <div className="flex items-center gap-2 rounded-lg bg-neon-green/5 border border-neon-green/20 px-3 py-2">
@@ -690,6 +666,44 @@ export default function StockPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  field: keyof typeof emptyForm;
+  type?: string;
+  placeholder?: string;
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  formErrors: Partial<typeof emptyForm>;
+}
+
+function Field({
+  label,
+  field,
+  type = "text",
+  placeholder = "",
+  form,
+  setForm,
+  formErrors,
+}: FieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">{label}</label>
+      <input
+        type={type}
+        value={form[field]}
+        onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+        placeholder={placeholder}
+        className={`w-full rounded-lg border bg-brand-surface px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/40 focus:outline-none transition-all ${
+          formErrors[field]
+            ? "border-neon-red/60 focus:border-neon-red"
+            : "border-brand-border focus:border-neon-cyan/50 focus:shadow-[0_0_0_1px_rgba(0,245,255,0.12)]"
+        }`}
+      />
+      {formErrors[field] && <p className="text-xs text-neon-red">{formErrors[field]}</p>}
     </div>
   );
 }
