@@ -84,8 +84,8 @@ export function normalizeOrderForLogistics(order: any): NormalizedOrder {
     lengthCm:      0,
     declaredValue: order.totalAmount ?? 0,
     shippingMethod: (typeof raw?.shipping_option === "string" ? raw.shipping_option : raw?.shipping_option?.name) ?? "",
-    branchCode:    "",
-    branchName:    "",
+    branchCode:    raw?.shipping_pickup_details?.branch_code || raw?.shipping_option?.code || "",
+    branchName:    raw?.shipping_pickup_details?.branch_name || (typeof raw?.shipping_option === "string" ? raw.shipping_option : raw?.shipping_option?.name) || "",
     reference:     order.externalId,
   };
 }
@@ -107,10 +107,8 @@ export function validateOrderForExport(
       if (!order.city)         errors.push("falta localidad");
       if (!order.province)     errors.push("falta provincia");
       if (!order.postalCode)   errors.push("falta código postal");
-    } else {
-      if (!order.branchCode && !order.branchName)
-        errors.push("falta sucursal Andreani (código o nombre)");
     }
+    // Para sucursal ya no requerimos que se haya ingresado manualmente el código/nombre
   }
 
   if (provider === "correo_argentino") {

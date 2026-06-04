@@ -28,15 +28,11 @@ export async function POST(req: Request) {
       orderIds,
       provider,
       shippingType,
-      branchCode = "",
-      branchName = "",
       validateOnly = false,
     } = body as {
       orderIds:     string[];
       provider:     LogisticsProvider;
       shippingType: AndreaniType | null;
-      branchCode?:  string;
-      branchName?:  string;
       validateOnly?: boolean;
     };
 
@@ -56,11 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No se encontraron pedidos" }, { status: 404 });
 
     const normalized: NormalizedOrder[] = orders.map((o) => {
-      const norm = normalizeOrderForLogistics(o);
-      // Inject branch data (applies same branch to all orders when sucursal)
-      norm.branchCode = branchCode;
-      norm.branchName = branchName;
-      return norm;
+      return normalizeOrderForLogistics(o);
     });
 
     // Validate every order

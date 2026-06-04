@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { CORREO_MAX_PER_FILE, type ValidationError } from "@/lib/logistics-expor
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Provider     = "andreani" | "correo_argentino" | "";
-type AndreaniType = "domicilio" | "sucursal";
+type AndreaniType = "domicilio" | "sucursal" | "";
 
 interface Order {
   id:                 string;
@@ -62,10 +62,11 @@ function matchesProvider(
   if (!provider) return true;
   const name = (shippingOptionName ?? "").toLowerCase().trim();
   if (provider === "andreani") {
+    if (!andreaniType) return false;
     if (!name) return andreaniType === "sucursal" ? true : hasFullAddress(addr);
-    if (!name.includes("andreani")) return false;
-    if (andreaniType === "sucursal") return name.includes("sucursal");
-    return !name.includes("sucursal");
+    const isSucursal = name.includes("sucursal") || name.includes("retiro") || name.includes("punto");
+    if (andreaniType === "sucursal") return isSucursal;
+    return !isSucursal && name.includes("andreani");
   }
   if (provider === "correo_argentino") {
     if (!name) return hasFullAddress(addr);
@@ -104,9 +105,21 @@ export default function LogisticsExportPage() {
 
   // Provider config
   const [provider,     setProvider]     = useState<Provider>("");
-  const [andreaniType, setAndreaniType] = useState<AndreaniType>("domicilio");
-  const [branchCode,   setBranchCode]   = useState("");
-  const [branchName,   setBranchName]   = useState("");
+  const [andreaniType, setAndreaniType] = useState<AndreaniType>("");
+  const [isPending, startTransition] = useTransition();
+
+  const handleProviderSelect = (p: Provider) => {
+    startTransition(() => {
+      setProvider(p);
+      if (p !== "andreani") setAndreaniType("");
+    });
+  };
+
+  const handleAndreaniTypeSelect = (t: AndreaniType) => {
+    startTransition(() => {
+      setAndreaniType(t);
+    });
+  };
 
   // Validation + export state
   const [validating,        setValidating]        = useState(false);
@@ -151,7 +164,7 @@ export default function LogisticsExportPage() {
     setValidationErrors(null);
     setValidationPassed(false);
     setExportMsg(null);
-  }, [selected, provider, andreaniType, branchCode, branchName]);
+  }, [selected, provider, andreaniType]);
 
   // ── Selection helpers ─────────────────────────────────────────────────────
 
@@ -186,8 +199,6 @@ export default function LogisticsExportPage() {
           orderIds:    Array.from(selected),
           provider,
           shippingType: provider === "andreani" ? andreaniType : null,
-          branchCode,
-          branchName,
           validateOnly: true,
         }),
       });
@@ -217,8 +228,6 @@ export default function LogisticsExportPage() {
           orderIds:    Array.from(selected),
           provider,
           shippingType: provider === "andreani" ? andreaniType : null,
-          branchCode,
-          branchName,
         }),
       });
       const data = await res.json();
@@ -320,7 +329,7 @@ export default function LogisticsExportPage() {
           ] as const).map((p) => (
             <button
               key={p.id}
-              onClick={() => setProvider(p.id)}
+              onClick={() => handleProviderSelect(p.id)}
               className={[
                 "relative flex items-start gap-4 rounded-xl border p-4 text-left transition-all duration-200",
                 provider === p.id
@@ -348,7 +357,7 @@ export default function LogisticsExportPage() {
               {(["domicilio", "sucursal"] as const).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setAndreaniType(t)}
+                  onClick={() => handleAndreaniTypeSelect(t)}
                   className={[
                     "px-4 py-2 rounded-lg text-sm font-medium border transition-all",
                     andreaniType === t
@@ -361,32 +370,7 @@ export default function LogisticsExportPage() {
               ))}
             </div>
 
-            {andreaniType === "sucursal" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="space-y-1">
-                  <label className="text-xs text-[var(--text-secondary)]">Código de sucursal *</label>
-                  <Input
-                    value={branchCode}
-                    onChange={(e) => setBranchCode(e.target.value)}
-                    placeholder="Ej: 1048"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-[var(--text-secondary)]">Nombre de sucursal</label>
-                  <Input
-                    value={branchName}
-                    onChange={(e) => setBranchName(e.target.value)}
-                    placeholder="Ej: Palermo Hollywood"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <p className="col-span-2 text-xs text-neon-yellow/80 flex items-center gap-1.5">
-                  <Info className="h-3.5 w-3.5 shrink-0" />
-                  El código y nombre de sucursal se aplican a todos los pedidos seleccionados.
-                </p>
-              </div>
-            )}
+            {/* Los inputs de sucursal manuales han sido eliminados para permitir exportar todas las sucursales juntas */}
           </div>
         )}
 
@@ -460,7 +444,7 @@ export default function LogisticsExportPage() {
         </div>
 
         {/* Orders table */}
-        {loading ? (
+        {loading || isPending ? (
           <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
             <Loader2 className="h-6 w-6 animate-spin mr-2" /> Cargando pedidos...
           </div>
