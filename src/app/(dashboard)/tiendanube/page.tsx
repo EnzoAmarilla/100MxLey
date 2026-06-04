@@ -77,6 +77,7 @@ export default function TiendanubePage() {
   const [syncing, setSyncing]   = useState(false);
   const [exporting, setExporting] = useState(false);
   const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null);
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
 
   const [counts, setCounts] = useState<StatusCounts>({ pending: 0, paid: 0, ready_to_ship: 0, shipped: 0, delivered: 0, cancelled: 0, total: 0 });
   const [totalRevenue, setTotalRevenue]   = useState(0);
@@ -130,8 +131,23 @@ export default function TiendanubePage() {
   }, [status, dateFrom, dateTo, courier]);
 
   useEffect(() => {
-    fetchOrders(0);
-  }, [status, dateFrom, dateTo, courier, fetchOrders]);
+    const doInitialSync = async () => {
+      try {
+        await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      } catch (e) {
+        console.error("Auto-sync error:", e);
+      } finally {
+        setInitialSyncDone(true);
+      }
+    };
+    doInitialSync();
+  }, []);
+
+  useEffect(() => {
+    if (initialSyncDone) {
+      fetchOrders(0);
+    }
+  }, [status, dateFrom, dateTo, courier, fetchOrders, initialSyncDone]);
 
   const handleSync = async () => {
     setSyncing(true);

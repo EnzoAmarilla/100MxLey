@@ -111,6 +111,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const init = async () => {
+      // 1. Sincronizar pedidos automáticamente al ingresar
+      try {
+        await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
+      } catch (e) {
+        console.error("Error auto-syncing:", e);
+      }
+
+      // 2. Cargar todas las métricas con la info ya procesada
       await Promise.all([
         fetchMetrics(period),
         fetch("/api/credits")
