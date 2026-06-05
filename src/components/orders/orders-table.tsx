@@ -134,6 +134,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
               <th className={thClass}># Pedido</th>
               <th className={thClass}>Fecha</th>
               <th className={thClass}>Comprador</th>
+              <th className={thClass}>SKU</th>
               <th className={thClass}>Total</th>
               <th className={thClass}>Productos</th>
               <th className={thClass}>Pago</th>
@@ -145,7 +146,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                <td colSpan={11} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                   <div className="flex flex-col items-center gap-2">
                     <Package className="h-8 w-8 opacity-20" />
                     <span>No hay pedidos para mostrar</span>
@@ -183,6 +184,37 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
                     <td className="px-4 py-3">
                       <div className="font-medium text-[var(--text-primary)]">{order.buyerName}</div>
                       <div className="text-[10px] text-[var(--text-secondary)]">{order.buyerEmail}</div>
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                      {(() => {
+                        const skus = parseProducts(order.products).map(p => p.sku).filter(Boolean);
+                        if (skus.length === 0) return "—";
+                        if (skus.length === 1) {
+                          return (
+                            <span 
+                              className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[8rem] inline-block"
+                              title={skus[0]}
+                            >
+                              {skus[0]}
+                            </span>
+                          );
+                        }
+                        return (
+                          <div 
+                            className="flex items-center gap-1.5 cursor-pointer group"
+                            title={skus.join(", ")}
+                            onClick={(e) => { e.stopPropagation(); setViewingOrder(order); }}
+                          >
+                            <span className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[6rem] transition-colors group-hover:border-neon-cyan/50">
+                              {skus[0]}
+                            </span>
+                            <span className="text-[10px] text-neon-cyan/80 border-b border-dashed border-neon-cyan/50 transition-colors group-hover:text-neon-cyan whitespace-nowrap">
+                              +{skus.length - 1} más
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)] whitespace-nowrap">
