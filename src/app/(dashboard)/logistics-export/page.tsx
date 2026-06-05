@@ -10,6 +10,7 @@ import {
   Package, ShieldAlert, Info,
 } from "lucide-react";
 import { CORREO_MAX_PER_FILE, type ValidationError } from "@/lib/logistics-export";
+import { OrderDetailModal } from "@/components/orders/order-detail-modal";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ interface Order {
   buyerName:          string;
   buyerEmail:         string;
   address:            any;
+  products:           any;
   status:             string;
   totalAmount:        number;
   createdAt:          string;
@@ -37,6 +39,19 @@ const fmtDate = (d: string) => {
   const dt = new Date(d);
   return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}`;
 };
+
+function parseProducts(productsStr: any): any[] {
+  if (!productsStr) return [];
+  if (typeof productsStr === "string") {
+    try {
+      return JSON.parse(productsStr);
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(productsStr)) return productsStr;
+  return [];
+}
 
 function parseAddress(addr: unknown): string {
   try {
@@ -101,6 +116,9 @@ export default function LogisticsExportPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
   const [search,   setSearch]   = useState("");
+  
+  // Viewing Order
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -462,7 +480,7 @@ export default function LogisticsExportPage() {
                         : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                     </button>
                   </th>
-                  {["# Pedido","Fecha","Comprador","Dirección","Seguimiento","Envío","Estado","Total"].map((h) => (
+                  {["# Pedido","Fecha","Comprador","SKU","Dirección","Seguimiento","Envío","Estado","Total"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">{h}</th>
                   ))}
                 </tr>
@@ -470,7 +488,7 @@ export default function LogisticsExportPage() {
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                       <div className="flex flex-col items-center gap-2">
                         <Package className="h-8 w-8 opacity-20" />
                         <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para mostrar"}</span>
@@ -495,6 +513,36 @@ export default function LogisticsExportPage() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-[var(--text-primary)] text-sm">{order.buyerName}</div>
                       <div className="text-[10px] text-[var(--text-secondary)]">{order.buyerEmail}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                      {(() => {
+                        const skus = parseProducts(order.products).map((p: any) => p.sku).filter(Boolean);
+                        if (skus.length === 0) return "—";
+                        if (skus.length === 1) {
+                          return (
+                            <span 
+                              className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[8rem] inline-block"
+                              title={skus[0]}
+                            >
+                              {skus[0]}
+                            </span>
+                          );
+                        }
+                        return (
+                          <div 
+                            className="flex items-center gap-1.5 cursor-pointer group"
+                            title={skus.join(", ")}
+                            onClick={(e) => { e.stopPropagation(); setViewingOrder(order); }}
+                          >
+                            <span className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[6rem] transition-colors group-hover:border-neon-cyan/50">
+                              {skus[0]}
+                            </span>
+                            <span className="text-[10px] text-neon-cyan/80 border-b border-dashed border-neon-cyan/50 transition-colors group-hover:text-neon-cyan whitespace-nowrap">
+                              +{skus.length - 1} más
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">{parseAddress(order.address)}</td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)] max-w-[8rem]">
@@ -649,6 +697,12 @@ export default function LogisticsExportPage() {
           </p>
         )}
       </div>
+
+      <OrderDetailModal 
+        order={viewingOrder} 
+        isOpen={!!viewingOrder} 
+        onClose={() => setViewingOrder(null)} 
+      />
     </div>
   );
 }
