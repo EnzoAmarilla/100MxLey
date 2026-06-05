@@ -61,11 +61,11 @@ export async function GET(req: Request) {
   const processedOrders = orders.map(({ rawPayload, ...o }) => {
     const raw = rawPayload as any;
     
-    let enhancedProducts = o.products;
+    let enhancedProducts: any = o.products;
     try {
       const parsed = typeof o.products === "string" ? JSON.parse(o.products) : o.products;
       if (Array.isArray(parsed) && raw?.products && Array.isArray(raw.products)) {
-        enhancedProducts = parsed.map((p, i) => {
+        enhancedProducts = parsed.map((p: any, i: number) => {
           const rawP = raw.products[i] || {};
           // If SKU is literally just units/pack info (like "4 UNIDADES"), fallback to product_id
           let finalSku = p.sku;
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
           return { ...p, sku: finalSku, product_id: rawP.product_id };
         });
       }
-    } catch (e) {}
+    } catch { }
 
     return {
       ...o,
