@@ -26,6 +26,8 @@ interface Order {
   createdAt: string;
   paymentLabel: string | null;
   shippingOptionName: string | null;
+  trackingCode: string | null;
+  trackingUrl?: string | null;
 }
 
 function parseProducts(products: unknown): Product[] {
@@ -135,6 +137,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
               <th className={thClass}>Total</th>
               <th className={thClass}>Productos</th>
               <th className={thClass}>Pago</th>
+              <th className={thClass}>Seguimiento</th>
               <th className={thClass}>Envío</th>
               <th className={thClass}>Acciones</th>
             </tr>
@@ -142,7 +145,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                   <div className="flex flex-col items-center gap-2">
                     <Package className="h-8 w-8 opacity-20" />
                     <span>No hay pedidos para mostrar</span>
@@ -202,10 +205,27 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
                     </td>
 
                     <td className="px-4 py-3">
+                      {order.trackingCode ? (
+                        <a
+                          href={order.trackingUrl || `https://www.google.com/search?q=${order.trackingCode}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-neon-cyan hover:underline truncate"
+                          title={`Seguimiento: ${order.trackingCode}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{order.trackingCode}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         {shippingBadge(order.status)}
                         {order.shippingOptionName && (
-                          <span className="text-[10px] text-[var(--text-secondary)] leading-tight max-w-[140px] truncate">
+                          <span className="text-[10px] text-[var(--text-secondary)] leading-tight max-w-[140px] truncate" title={order.shippingOptionName}>
                             {order.shippingOptionName}
                           </span>
                         )}

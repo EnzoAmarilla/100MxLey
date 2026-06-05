@@ -26,6 +26,8 @@ interface Order {
   totalAmount:        number;
   createdAt:          string;
   shippingOptionName: string | null;
+  trackingCode:       string | null;
+  trackingUrl?:       string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -460,7 +462,7 @@ export default function LogisticsExportPage() {
                         : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                     </button>
                   </th>
-                  {["# Pedido","Fecha","Comprador","Dirección","Envío","Estado","Total"].map((h) => (
+                  {["# Pedido","Fecha","Comprador","Dirección","Seguimiento","Envío","Estado","Total"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">{h}</th>
                   ))}
                 </tr>
@@ -468,7 +470,7 @@ export default function LogisticsExportPage() {
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <td colSpan={9} className="px-4 py-16 text-center text-[var(--text-secondary)]">
                       <div className="flex flex-col items-center gap-2">
                         <Package className="h-8 w-8 opacity-20" />
                         <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para mostrar"}</span>
@@ -495,8 +497,24 @@ export default function LogisticsExportPage() {
                       <div className="text-[10px] text-[var(--text-secondary)]">{order.buyerEmail}</div>
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">{parseAddress(order.address)}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)] max-w-[8rem]">
+                      {order.trackingCode ? (
+                        <a
+                          href={order.trackingUrl || `https://www.google.com/search?q=${order.trackingCode}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-neon-cyan hover:underline truncate block"
+                          title={`Seguimiento: ${order.trackingCode}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{order.trackingCode}
+                        </a>
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)] max-w-[11rem]">
-                      <span className="block truncate">{order.shippingOptionName ?? "—"}</span>
+                      <span className="block truncate" title={order.shippingOptionName ?? undefined}>{order.shippingOptionName ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3">
                       {order.status === "ready_to_ship" && <Badge variant="cyan">Por enviar</Badge>}

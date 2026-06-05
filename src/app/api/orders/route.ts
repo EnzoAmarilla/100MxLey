@@ -65,6 +65,7 @@ export async function GET(req: Request) {
       paymentLabel:       raw?.gateway_name ?? raw?.gateway ?? null,
       shippingOptionName: (typeof raw?.shipping_option === "string" ? raw.shipping_option : raw?.shipping_option?.name) ?? null,
       buyerPhone:         raw?.customer?.phone ?? null,
+      trackingUrl:        raw?.shipping_tracking_url ?? null,
     };
   });
 
