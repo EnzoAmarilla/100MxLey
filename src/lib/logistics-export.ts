@@ -40,6 +40,7 @@ export interface ExportFile {
   content:  string;
 }
 
+
 function safeParseJSON(val: unknown): any {
   if (typeof val === "string") {
     try { return JSON.parse(val); } catch { return null; }
@@ -70,7 +71,7 @@ export function normalizeOrderForLogistics(order: any): NormalizedOrder {
     customerName:  (order.buyerName  || "").trim(),
     phone,
     email:         (order.buyerEmail || "").trim(),
-    dni:           "",
+    dni:           parseDNI(String(raw?.customer?.identification ?? raw?.billing_address?.identification ?? "")),
     street:        (address.street   || "").trim(),
     streetNumber:  (address.number   || "").trim(),
     floor:         (address.floor    || "").trim(),
@@ -140,72 +141,120 @@ function buildCSV(headers: string[], rows: unknown[][]): string {
   return [csvRow(headers), ...rows.map(csvRow)].join("\r\n");
 }
 
-// ── Andreani — Domicilio ─────────────────────────────────────────────────────
+function parseDNI(identification: string): string {
+  const cleaned = identification.replace(/[^\w]/g, "");
+  if (/^\d{11}$/.test(cleaned)) {
+    // Si es un CUIT/CUIL de 11 dígitos, el DNI está en el medio (índices 2 al 10)
+    return cleaned.slice(2, 10).replace(/^0+/, "");
+  }
+  return cleaned;
+}
 
-const ANDREANI_HOME_HEADERS = [
-  "nombre_apellido", "telefono", "email", "dni", "observaciones",
-  "calle", "numero", "piso", "departamento",
-  "codigo_postal", "localidad", "provincia",
-  "peso_kg", "alto_cm", "ancho_cm", "largo_cm",
-  "valor_declarado", "numero_pedido", "referencia_venta",
-];
+function splitName(fullName: string): { firstName: string, lastName: string } {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return { firstName: fullName.trim(), lastName: "" };
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(" ");
+  return { firstName, lastName };
+}
+
+function splitPhone(phone: string): { area: string, num: string } {
+  let cleaned = phone.replace(/\D/g, "");
+  if (cleaned.startsWith("549")) cleaned = cleaned.slice(3);
+  else if (cleaned.startsWith("54")) cleaned = cleaned.slice(2);
+  else if (cleaned.startsWith("0")) cleaned = cleaned.slice(1);
+  
+  // Al ser difícil adivinar el código de área correcto (puede ser 2, 3 o 4 dígitos),
+  // enviamos todo el número en el campo "num" para que no se corte de manera extraña,
+  // y dejamos el código de área vacío salvo que sepamos que es "11".
+  if (cleaned.startsWith("11") && cleaned.length === 10) {
+    return { area: "11", num: cleaned.slice(2) };
+  }
+  
+  return { area: "", num: cleaned };
+}
+
+// ── Andreani ─────────────────────────────────────────────────────────────────
 
 export function generateAndreaniHomeCSV(orders: NormalizedOrder[]): ExportFile {
+  const template = "Características;;;;;;;Destinatario;;;;;;Domicilio destino;;;;;\r\n\"Paquete Guardado \nEj: Parlante Speaker\";\"Peso (grs)\nEj: \";\"Alto (cm)\nEj: \";\"Ancho (cm)\nEj: \";\"Profundidad (cm)\nEj: \";\"Valor declarado ($ C/IVA) *\nEj: \";\"Numero Interno\nEj: \";\"Nombre *\nEj: \";\"Apellido *\nEj: \";\"DNI *\nEj: \";\"Email *\nEj: \";\"Celular código *\nEj: \";\"Celular número *\nEj: \";\"Calle *\nEj: \";\"Número *\nEj: \";\"Piso\nEj: \";\"Departamento\nEj: \";\"Provincia / Localidad / CP * \nEj: BUENOS AIRES / 11 DE SEPTIEMBRE / 1657\";\"Observaciones\nEj: \"";
+
+  const rows = orders.map((o) => {
+    const { area, num } = splitPhone(o.phone || "");
+    const { firstName, lastName } = splitName(o.customerName || "");
+    return [
+      "Paquete", // Paquete Guardado
+      Math.round(o.weightKg * 1000) || 1000, // Peso (grs)
+      o.heightCm || 10, // Alto (cm)
+      o.widthCm || 10,  // Ancho (cm)
+      o.lengthCm || 10, // Profundidad (cm)
+      o.declaredValue.toFixed(2), // Valor declarado
+      o.orderNumber || "", // Numero Interno
+      firstName, // Nombre
+      lastName, // Apellido
+      o.dni || "", // DNI
+      o.email || "", // Email
+      area, // Celular codigo
+      num, // Celular numero
+      o.street || "", // Calle
+      o.streetNumber || "", // Número
+      o.floor || "", // Piso
+      o.apartment || "", // Departamento
+      `${o.province || ""} / ${o.city || ""} / ${o.postalCode || ""}`, // Provincia / Localidad / CP
+      "" // Observaciones
+    ];
+  });
+
   const dateTag = new Date().toISOString().slice(0, 10);
   return {
     filename: `andreani_domicilio_${dateTag}.csv`,
-    content: buildCSV(
-      ANDREANI_HOME_HEADERS,
-      orders.map((o) => [
-        o.customerName, o.phone, o.email, o.dni, "",
-        o.street, o.streetNumber, o.floor, o.apartment,
-        o.postalCode, o.city, o.province,
-        o.weightKg, o.heightCm, o.widthCm, o.lengthCm,
-        o.declaredValue.toFixed(2), o.orderNumber, o.reference,
-      ])
-    ),
+    content: template + "\r\n" + rows.map(csvRow).join("\r\n"),
   };
 }
 
-// ── Andreani — Sucursal ──────────────────────────────────────────────────────
-
-const ANDREANI_BRANCH_HEADERS = [
-  "nombre_apellido", "telefono", "email", "dni",
-  "codigo_sucursal", "nombre_sucursal",
-  "peso_kg", "alto_cm", "ancho_cm", "largo_cm",
-  "valor_declarado", "numero_pedido", "referencia_venta",
-];
-
 export function generateAndreaniBranchCSV(orders: NormalizedOrder[]): ExportFile {
+  const template = "Características;;;;;;;Destinatario;;;;;;Domicilio destino;;;;;\r\n\"Paquete Guardado \nEj: Parlante Speaker\";\"Peso (grs)\nEj: \";\"Alto (cm)\nEj: \";\"Ancho (cm)\nEj: \";\"Profundidad (cm)\nEj: \";\"Valor declarado ($ C/IVA) *\nEj: \";\"Numero Interno\nEj: \";\"Nombre *\nEj: \";\"Apellido *\nEj: \";\"DNI *\nEj: \";\"Email *\nEj: \";\"Celular código *\nEj: \";\"Celular número *\nEj: \";\"Calle *\nEj: \";\"Número *\nEj: \";\"Piso\nEj: \";\"Departamento\nEj: \";\"Provincia / Localidad / CP * \nEj: BUENOS AIRES / 11 DE SEPTIEMBRE / 1657\";\"Observaciones\nEj: \"";
+
+  const rows = orders.map((o) => {
+    const { area, num } = splitPhone(o.phone || "");
+    const { firstName, lastName } = splitName(o.customerName || "");
+    return [
+      "Paquete", // Paquete Guardado
+      Math.round(o.weightKg * 1000) || 1000, // Peso (grs)
+      o.heightCm || 10, // Alto (cm)
+      o.widthCm || 10,  // Ancho (cm)
+      o.lengthCm || 10, // Profundidad (cm)
+      o.declaredValue.toFixed(2), // Valor declarado
+      o.orderNumber || "", // Numero Interno
+      firstName, // Nombre
+      lastName, // Apellido
+      o.dni || "", // DNI
+      o.email || "", // Email
+      area, // Celular codigo
+      num, // Celular numero
+      o.street || "", // Calle
+      o.streetNumber || "", // Número
+      o.floor || "", // Piso
+      o.apartment || "", // Departamento
+      `${o.province || ""} / ${o.city || ""} / ${o.postalCode || ""}`, // Provincia / Localidad / CP
+      "" // Observaciones
+    ];
+  });
+
   const dateTag = new Date().toISOString().slice(0, 10);
   return {
     filename: `andreani_sucursal_${dateTag}.csv`,
-    content: buildCSV(
-      ANDREANI_BRANCH_HEADERS,
-      orders.map((o) => [
-        o.customerName, o.phone, o.email, o.dni,
-        o.branchCode, o.branchName,
-        o.weightKg, o.heightCm, o.widthCm, o.lengthCm,
-        o.declaredValue.toFixed(2), o.orderNumber, o.reference,
-      ])
-    ),
+    content: template + "\r\n" + rows.map(csvRow).join("\r\n"),
   };
 }
 
 // ── Correo Argentino (máx 40 por archivo) ────────────────────────────────────
 
-const CORREO_HEADERS = [
-  "nombre_apellido", "telefono", "email", "dni_cuit",
-  "calle", "numero", "piso", "departamento",
-  "localidad", "provincia", "codigo_postal",
-  "peso_kg", "alto_cm", "ancho_cm", "largo_cm",
-  "valor_declarado", "tipo_envio",
-  "id_pedido", "referencia",
-];
-
 export const CORREO_MAX_PER_FILE = 40;
 
 export function generateCorreoArgentinoCSV(orders: NormalizedOrder[]): ExportFile[] {
+  const template = "tipo_producto(obligatorio);largo(obligatorio en CM);ancho(obligatorio en CM);altura(obligatorio en CM);peso(obligatorio en KG);valor_del_contenido(obligatorio en pesos argentinos);provincia_destino(obligatorio);sucursal_destino(obligatorio solo en caso de no ingresar localidad de destino);localidad_destino(obligatorio solo en caso de no ingresar sucursal de destino);calle_destino(obligatorio solo en caso de no ingresar sucursal de destino);altura_destino(obligatorio solo en caso de no ingresar sucursal de destino);piso(opcional solo en caso de no ingresar sucursal de destino);dpto(opcional solo en caso de no ingresar sucursal de destino);codpostal_destino(obligatorio solo en caso de no ingresar sucursal de destino);destino_nombre(obligatorio);destino_email(obligatorio, debe ser un email valido);cod_area_tel(opcional);tel(opcional);cod_area_cel(obligatorio);cel(obligatorio);numero_orden(opcional)";
+
   const dateTag = new Date().toISOString().slice(0, 10);
   const files: ExportFile[] = [];
   const chunks = Math.ceil(orders.length / CORREO_MAX_PER_FILE);
@@ -217,20 +266,37 @@ export function generateCorreoArgentinoCSV(orders: NormalizedOrder[]): ExportFil
       ? `correo_argentino_${dateTag}.csv`
       : `correo_argentino_${fileIndex}_${dateTag}.csv`;
 
+    const rows = chunk.map((o) => {
+      const { area, num } = splitPhone(o.phone || "");
+      return [
+        "Paquete", // tipo_producto
+        o.lengthCm || 10, // largo
+        o.widthCm || 10, // ancho
+        o.heightCm || 10, // altura
+        o.weightKg || 1, // peso
+        o.declaredValue.toFixed(2), // valor_del_contenido
+        o.province || "", // provincia_destino
+        o.branchCode || "", // sucursal_destino
+        o.city || "", // localidad_destino
+        o.street || "", // calle_destino
+        o.streetNumber || "", // altura_destino
+        o.floor || "", // piso
+        o.apartment || "", // dpto
+        o.postalCode || "", // codpostal_destino
+        o.customerName || "", // destino_nombre
+        o.email || "", // destino_email
+        "", // cod_area_tel
+        "", // tel
+        area, // cod_area_cel
+        num, // cel
+        o.orderNumber || "", // numero_orden
+      ];
+    });
+
     files.push({
       filename,
-      content: buildCSV(
-        CORREO_HEADERS,
-        chunk.map((o) => [
-          o.customerName, o.phone, o.email, o.dni,
-          o.street, o.streetNumber, o.floor, o.apartment,
-          o.city, o.province, o.postalCode,
-          o.weightKg, o.heightCm, o.widthCm, o.lengthCm,
-          o.declaredValue.toFixed(2),
-          o.shippingMethod || "standard",
-          o.orderNumber, o.reference,
-        ])
-      ),
+      // We do not append \r\n to rows that Correo might complain about, but standard CSV allows it.
+      content: template + "\r\n" + rows.map(csvRow).join("\r\n"),
     });
   }
 
