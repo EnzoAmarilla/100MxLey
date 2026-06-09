@@ -61,6 +61,11 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
     page++;
   }
 
+  console.log(`[TIENDANUBE_SYNC] USER: ${userId}`);
+  console.log(`[TIENDANUBE_SYNC] STORE: ${store.storeId}`);
+  console.log(`[TIENDANUBE_SYNC] TOKEN: ${store.accessToken.substring(0, 10)}...`);
+  console.log(`[TIENDANUBE_SYNC] ORDERS RECEIVED: ${allOrders.length}`);
+
   const BATCH = 20;
   for (let i = 0; i < allOrders.length; i += BATCH) {
     const batch = allOrders.slice(i, i + BATCH);
@@ -103,6 +108,7 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
             },
           },
           update: {
+            userId,
             status,
             buyerName:    tnOrder.customer?.name  || "Sin nombre",
             buyerEmail:   tnOrder.customer?.email || "",
@@ -134,6 +140,8 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
       })
     );
   }
+
+  console.log(`[TIENDANUBE_SYNC] INSERT RESULT: ${allOrders.length} orders processed`);
 
   await prisma.store.update({
     where: { id: store.id },

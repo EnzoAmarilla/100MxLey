@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         },
       },
       update: {
+        userId: store.userId,
         status: orderData.status || "paid",
         totalAmount: parseFloat(orderData.total) || 0,
         products: JSON.stringify(products),

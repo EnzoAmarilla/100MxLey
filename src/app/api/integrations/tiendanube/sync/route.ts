@@ -40,7 +40,7 @@ export async function POST() {
     
     return NextResponse.json({ success: true, count: totalCount, incremental });
   } catch (error: any) {
-    console.error("[API_TIENDANUBE_SYNC]", error);
+    console.error("[API_TIENDANUBE_SYNC] ERROR FATAL:", error);
     return NextResponse.json({
       error: "Error interno de sincronización",
       detail: error?.message ?? String(error),

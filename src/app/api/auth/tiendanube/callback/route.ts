@@ -58,6 +58,7 @@ export async function GET(req: Request) {
         },
       },
       update: {
+        userId: session.user.id,
         accessToken: tokenData.access_token,
         tokenType: tokenData.token_type,
         scope: tokenData.scope,
@@ -76,6 +77,24 @@ export async function GET(req: Request) {
         domain: storeData.original_domain,
       },
     });
+
+    // Transferir órdenes existentes al nuevo usuario (en caso de que la tienda ya existiera)
+    const dbStore = await prisma.store.findUnique({
+      where: {
+        platform_storeId: {
+          platform: "tiendanube",
+          storeId: String(tokenData.user_id),
+        },
+      },
+      select: { id: true },
+    });
+
+    if (dbStore) {
+      await prisma.order.updateMany({
+        where: { storeId: dbStore.id },
+        data: { userId: session.user.id },
+      });
+    }
 
     // Register webhook for orders/paid
     await fetch(
