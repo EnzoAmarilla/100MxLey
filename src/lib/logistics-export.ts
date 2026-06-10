@@ -164,14 +164,9 @@ function splitPhone(phone: string): { area: string, num: string } {
   else if (cleaned.startsWith("54")) cleaned = cleaned.slice(2);
   else if (cleaned.startsWith("0")) cleaned = cleaned.slice(1);
   
-  // Al ser difícil adivinar el código de área correcto (puede ser 2, 3 o 4 dígitos),
-  // enviamos todo el número en el campo "num" para que no se corte de manera extraña,
-  // y dejamos el código de área vacío salvo que sepamos que es "11".
-  if (cleaned.startsWith("11") && cleaned.length === 10) {
-    return { area: "11", num: cleaned.slice(2) };
-  }
-  
-  return { area: "", num: cleaned };
+  // El usuario pidió colocar el número completo en ambas columnas
+  // para no contradecir el CSV base del cliente.
+  return { area: cleaned, num: cleaned };
 }
 
 // ── Andreani ─────────────────────────────────────────────────────────────────
