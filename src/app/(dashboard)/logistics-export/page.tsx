@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Truck, FileDown, CheckSquare, Square, AlertCircle,
   CheckCircle2, Loader2, ChevronLeft, ChevronRight,
-  Package, ShieldAlert, Info,
+  Package, ShieldAlert, Info, Lock
 } from "lucide-react";
 import { CORREO_MAX_PER_FILE, type ValidationError } from "@/lib/logistics-export";
 import { OrderDetailModal } from "@/components/orders/order-detail-modal";
@@ -39,6 +39,8 @@ const fmtDate = (d: string) => {
   const dt = new Date(d);
   return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}`;
 };
+const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const getToday = () => new Date();
 
 function parseProducts(productsStr: any): any[] {
   if (!productsStr) return [];
@@ -105,16 +107,46 @@ function downloadCSV(filename: string, content: string) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LogisticsExportPage() {
+  // Access state
+  const [hasRequested, setHasRequested] = useState(false);
+  const [isDenied, setIsDenied] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/client/access")
+      .then((r) => r.json())
+      .then((d) => {
+        setHasAccess(d.logisticsEnabled ?? false);
+        setHasRequested(d.logisticsRequested ?? false);
+        setIsDenied(d.logisticsDenied ?? false);
+      })
+      .catch(() => setHasAccess(false));
+  }, []);
+
+  const handleRequest = async () => {
+    setRequesting(true);
+    try {
+      await fetch("/api/client/request-logistics", { method: "POST" });
+      setHasRequested(true);
+      setIsDenied(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   // Orders state
   const [orders, setOrders]   = useState<Order[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Filters
   const [status,   setStatus]   = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo,   setDateTo]   = useState("");
+  const [dateFrom, setDateFrom] = useState(() => fmt(getToday()));
+  const [dateTo,   setDateTo]   = useState(() => fmt(getToday()));
   const [search,   setSearch]   = useState("");
   
   // Viewing Order
@@ -126,6 +158,7 @@ export default function LogisticsExportPage() {
   // Provider config
   const [provider,     setProvider]     = useState<Provider>("");
   const [andreaniType, setAndreaniType] = useState<AndreaniType>("");
+  const isStep1Complete = provider === "correo_argentino" || (provider === "andreani" && andreaniType !== "");
   const [isPending, startTransition] = useTransition();
 
   const handleProviderSelect = (p: Provider) => {
@@ -177,7 +210,16 @@ export default function LogisticsExportPage() {
     }
   }, [status, dateFrom, dateTo]);
 
-  useEffect(() => { fetchOrders(0); }, [fetchOrders]);
+  useEffect(() => { 
+    if (isStep1Complete) {
+      fetchOrders(0); 
+    } else {
+      setOrders([]);
+      setTotal(0);
+      setPage(0);
+      setSelected(new Set());
+    }
+  }, [fetchOrders, isStep1Complete]);
 
   // Reset validation when selection or provider changes
   useEffect(() => {
@@ -282,10 +324,8 @@ export default function LogisticsExportPage() {
 
   // ── Date preset helpers ───────────────────────────────────────────────────
 
-  const today = new Date();
-  const fmt   = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
   const applyPreset = (id: string) => {
+    const today = getToday();
     if (id === "today") { setDateFrom(fmt(today)); setDateTo(fmt(today)); return; }
     const f = new Date(today);
     if (id === "7d")  f.setDate(f.getDate() - 7);
@@ -295,6 +335,20 @@ export default function LogisticsExportPage() {
     setDateFrom(fmt(f)); setDateTo(fmt(today));
   };
 
+  const isActivePreset = (id: string) => {
+    const today = getToday();
+    const t = fmt(today);
+    if (id === "today") return dateFrom === t && dateTo === t;
+    if (id === "all") return dateFrom === "" && dateTo === "";
+    
+    const f = new Date(today);
+    if (id === "7d")  f.setDate(f.getDate() - 7);
+    if (id === "14d") f.setDate(f.getDate() - 14);
+    if (id === "30d") f.setDate(f.getDate() - 30);
+    
+    return dateFrom === fmt(f) && dateTo === t;
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const filteredOrders = orders.filter((o) =>
@@ -302,10 +356,55 @@ export default function LogisticsExportPage() {
   );
   const hiddenCount = orders.length - filteredOrders.length;
 
-  const canValidate = selected.size > 0 && !!provider && (provider !== "andreani" || !!andreaniType);
+  const canValidate = selected.size > 0 && isStep1Complete;
   const canExport   = canValidate && validationPassed;
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (hasAccess === null) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-xl bg-brand-surface animate-pulse border border-brand-border" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className={`h-16 w-16 rounded-2xl border flex items-center justify-center mb-6 ${
+          isDenied ? "bg-red-500/10 border-red-500/20" : "bg-brand-surface border-brand-border"
+        }`}>
+          <Lock className={`h-8 w-8 ${isDenied ? "text-red-400" : "text-[var(--text-secondary)]"}`} />
+        </div>
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+          {isDenied ? "Solicitud rechazada" : hasRequested ? "Solicitud enviada" : "Acceso pendiente de habilitación"}
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)] max-w-sm mb-6">
+          {isDenied
+            ? "Tu solicitud no fue aprobada en este momento. Podés volver a solicitarla cuando estés listo."
+            : hasRequested
+            ? "Tu solicitud está siendo procesada por nuestro equipo. Te avisaremos cuando esté lista."
+            : "Esta sección será habilitada por el equipo de 100Mxley cuando tu cuenta esté lista para operar con logística."}
+        </p>
+        {!hasRequested && (
+          <button
+            onClick={handleRequest}
+            disabled={requesting}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-all ${
+              isDenied
+                ? "bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/20"
+                : "bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/20"
+            }`}
+          >
+            {requesting ? "Enviando…" : isDenied ? "Volver a solicitar" : "Solicitar habilitación"}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -407,7 +506,7 @@ export default function LogisticsExportPage() {
       </div>
 
       {/* ── PASO 2: Seleccioná pedidos ─────────────────────────────────── */}
-      <div className="rounded-xl border border-brand-border bg-brand-card p-6 space-y-5">
+      <div className={`rounded-xl border border-brand-border bg-brand-card p-6 space-y-5 transition-opacity duration-300 ${!isStep1Complete ? "opacity-50 pointer-events-none select-none" : ""}`}>
         <div className="flex items-center gap-2 mb-1">
           <span className="h-5 w-5 rounded-full bg-neon-cyan/20 border border-neon-cyan/40 flex items-center justify-center text-[10px] font-bold text-neon-cyan">2</span>
           <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Seleccioná los pedidos</h2>
@@ -434,7 +533,12 @@ export default function LogisticsExportPage() {
               <button
                 key={id}
                 onClick={() => applyPreset(id)}
-                className="px-3 py-1 rounded-full text-xs font-medium border border-brand-border bg-brand-surface/50 text-[var(--text-secondary)] hover:border-neon-cyan/30 hover:text-[var(--text-primary)] transition-colors"
+                className={[
+                  "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                  isActivePreset(id)
+                    ? "bg-neon-cyan/10 border-neon-cyan/40 text-neon-cyan"
+                    : "border-brand-border bg-brand-surface/50 text-[var(--text-secondary)] hover:border-neon-cyan/30 hover:text-[var(--text-primary)]"
+                ].join(" ")}
               >
                 {{ today:"Hoy", "7d":"7 días", "14d":"2 semanas", "30d":"1 mes", all:"Todos" }[id]}
               </button>
@@ -464,38 +568,50 @@ export default function LogisticsExportPage() {
         </div>
 
         {/* Orders table */}
-        {loading || isPending ? (
-          <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-            <Loader2 className="h-6 w-6 animate-spin mr-2" /> Cargando pedidos...
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-brand-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-brand-border bg-brand-surface/80">
-                  <th className="px-4 py-3 w-10">
-                    <button onClick={toggleAll}>
-                      {selected.size === filteredOrders.length && filteredOrders.length > 0
-                        ? <CheckSquare className="h-4 w-4 text-neon-cyan" />
-                        : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
-                    </button>
-                  </th>
-                  {["# Pedido","Fecha","Comprador","SKU","Dirección","Seguimiento","Envío","Estado","Total"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">{h}</th>
-                  ))}
+        <div className="overflow-x-auto rounded-xl border border-brand-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-brand-border bg-brand-surface/80">
+                <th className="px-4 py-3 w-10">
+                  <button onClick={toggleAll} disabled={loading || isPending}>
+                    {selected.size === filteredOrders.length && filteredOrders.length > 0 && !loading && !isPending
+                      ? <CheckSquare className="h-4 w-4 text-neon-cyan" />
+                      : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
+                  </button>
+                </th>
+                {["# Pedido","Fecha","Comprador","SKU","Dirección","Seguimiento","Envío","Estado","Total"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold tracking-wider uppercase text-[var(--text-secondary)]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!isStep1Complete ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <div className="flex flex-col items-center gap-2">
+                      <Truck className="h-8 w-8 opacity-20" />
+                      <span>Seleccioná una logística en el paso 1 para cargar los pedidos</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
-                      <div className="flex flex-col items-center gap-2">
-                        <Package className="h-8 w-8 opacity-20" />
-                        <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para mostrar"}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredOrders.map((order) => (
+              ) : loading || isPending ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" /> Cargando pedidos...
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-16 text-center text-[var(--text-secondary)]">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package className="h-8 w-8 opacity-20" />
+                      <span>{orders.length > 0 ? "Ningún pedido tiene dirección completa para este tipo de envío" : "No hay pedidos para mostrar"}</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredOrders.map((order) => (
                   <tr
                     key={order.id}
                     onClick={() => toggle(order.id)}
@@ -579,7 +695,6 @@ export default function LogisticsExportPage() {
               </tbody>
             </table>
           </div>
-        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
