@@ -131,16 +131,10 @@ export default function TiendanubePage() {
   }, [status, dateFrom, dateTo, courier]);
 
   useEffect(() => {
-    const doInitialSync = async () => {
-      try {
-        await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
-      } catch (e) {
-        console.error("Auto-sync error:", e);
-      } finally {
-        setInitialSyncDone(true);
-      }
-    };
-    doInitialSync();
+    setInitialSyncDone(true);
+    fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+      .then(() => fetchOrders(0))
+      .catch((e) => console.error("Auto-sync error:", e));
   }, []);
 
   useEffect(() => {

@@ -111,12 +111,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const init = async () => {
-      // 1. Sincronizar pedidos automáticamente al ingresar
-      try {
-        await fetch("/api/integrations/tiendanube/sync", { method: "POST" });
-      } catch (e) {
-        console.error("Error auto-syncing:", e);
-      }
+      // 1. Sincronizar pedidos en segundo plano, sin bloquear
+      fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+        .then(() => {
+          if (mounted) fetchMetrics(period);
+        })
+        .catch((e) => console.error("Error auto-syncing:", e));
 
       // 2. Cargar todas las métricas con la info ya procesada
       await Promise.all([
@@ -129,7 +129,8 @@ export default function DashboardPage() {
               .filter((t: any) => t.type === "debit")
               .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
             setConsumed(total);
-          }),
+          })
+          .catch((e) => console.error("Error credits:", e)),
         fetch("/api/integrations/status")
           .then((r) => r.json())
           .then((data) => {
@@ -137,7 +138,8 @@ export default function DashboardPage() {
               setTnConnected(true);
               setTnStoreName(data.tiendanube.storeName || "");
             }
-          }),
+          })
+          .catch((e) => console.error("Error status:", e)),
         fetch("/api/orders?platform=tiendanube&page=0")
           .then((r) => r.json())
           .then((d) => setTnHasAnyOrders((d.total ?? 0) > 0))

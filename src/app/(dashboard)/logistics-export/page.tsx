@@ -199,7 +199,23 @@ export default function LogisticsExportPage() {
     try {
       const res  = await fetch(`/api/orders?${params}`, { signal: abortRef.current.signal });
       const data = await res.json();
-      setOrders(data.orders ?? []);
+      
+      const rawOrders = data.orders ?? [];
+      const orderMap = new Map();
+      
+      for (const o of rawOrders) {
+        if (!o.externalId) {
+          orderMap.set(o.id, { ...o, duplicateCount: 1 });
+          continue;
+        }
+        if (!orderMap.has(o.externalId)) {
+          orderMap.set(o.externalId, { ...o, duplicateCount: 1 });
+        } else {
+          orderMap.get(o.externalId).duplicateCount += 1;
+        }
+      }
+      
+      setOrders(Array.from(orderMap.values()));
       setTotal(data.total   ?? 0);
       setPage(p);
       setSelected(new Set()); // reset selection on filter change
@@ -636,12 +652,19 @@ export default function LogisticsExportPage() {
                         if (skus.length === 0) return "—";
                         if (skus.length === 1) {
                           return (
-                            <span 
-                              className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[8rem] inline-block"
-                              title={skus[0]}
-                            >
-                              {skus[0]}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span 
+                                className="font-mono text-neon-cyan/90 bg-brand-surface/50 border border-brand-border px-1.5 py-0.5 rounded truncate max-w-[8rem] inline-block"
+                                title={skus[0]}
+                              >
+                                {skus[0]}
+                              </span>
+                              {(order as any).duplicateCount > 1 && (
+                                <span className="text-[10px] text-neon-yellow font-bold whitespace-nowrap bg-neon-yellow/10 border border-neon-yellow/30 px-1.5 py-0.5 rounded" title="Órdenes duplicadas en base de datos">
+                                  x{(order as any).duplicateCount}
+                                </span>
+                              )}
+                            </div>
                           );
                         }
                         return (
@@ -656,6 +679,11 @@ export default function LogisticsExportPage() {
                             <span className="text-[10px] text-neon-cyan/80 border-b border-dashed border-neon-cyan/50 transition-colors group-hover:text-neon-cyan whitespace-nowrap">
                               +{skus.length - 1} más
                             </span>
+                            {(order as any).duplicateCount > 1 && (
+                              <span className="text-[10px] text-neon-yellow font-bold whitespace-nowrap bg-neon-yellow/10 border border-neon-yellow/30 px-1.5 py-0.5 rounded ml-1" title="Órdenes duplicadas en base de datos">
+                                x{(order as any).duplicateCount}
+                              </span>
+                            )}
                           </div>
                         );
                       })()}
