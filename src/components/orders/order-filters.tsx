@@ -54,7 +54,9 @@ export function OrderFilters({
   onDateToChange,
   onCourierChange,
 }: OrderFiltersProps) {
-  const [activePreset, setActivePreset] = useState<string>("all");
+  const [activePreset, setActivePreset] = useState<string>(
+    dateFrom === fmt(new Date()) && dateTo === fmt(new Date()) ? "today" : "all"
+  );
 
   function applyPreset(id: string) {
     setActivePreset(id);

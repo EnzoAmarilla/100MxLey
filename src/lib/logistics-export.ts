@@ -1,6 +1,9 @@
-// Utilities for logistics CSV export — Andreani & Correo Argentino
+// Utilities for logistics export — Andreani (XLSX) & Correo Argentino (CSV)
+
+import * as XLSX from "xlsx";
 
 export type LogisticsProvider = "andreani" | "correo_argentino";
+export type ExportFormat      = "xlsx" | "csv";
 export type AndreaniType      = "domicilio" | "sucursal";
 
 export interface NormalizedOrder {
@@ -38,6 +41,9 @@ export interface ValidationError {
 export interface ExportFile {
   filename: string;
   content:  string;
+  /** "utf8" for CSV text content, "base64" for binary (xlsx) content. Defaults to "utf8". */
+  encoding?: "utf8" | "base64";
+  mimeType?: string;
 }
 
 
@@ -66,7 +72,7 @@ export function normalizeOrderForLogistics(order: any): NormalizedOrder {
 
   return {
     orderId:       order.id,
-    orderNumber:   order.externalId,
+    orderNumber:   order.orderNumber != null ? String(order.orderNumber) : order.externalId,
     source,
     customerName:  (order.buyerName  || "").trim(),
     phone,
@@ -171,10 +177,39 @@ function splitPhone(phone: string): { area: string, num: string } {
 
 // ── Andreani ─────────────────────────────────────────────────────────────────
 
-export function generateAndreaniHomeCSV(orders: NormalizedOrder[]): ExportFile {
-  const template = "Características;;;;;;;Destinatario;;;;;;Domicilio destino;;;;;\r\n\"Paquete Guardado \nEj: Parlante Speaker\";\"Peso (grs)\nEj: \";\"Alto (cm)\nEj: \";\"Ancho (cm)\nEj: \";\"Profundidad (cm)\nEj: \";\"Valor declarado ($ C/IVA) *\nEj: \";\"Numero Interno\nEj: \";\"Nombre *\nEj: \";\"Apellido *\nEj: \";\"DNI *\nEj: \";\"Email *\nEj: \";\"Celular código *\nEj: \";\"Celular número *\nEj: \";\"Calle *\nEj: \";\"Número *\nEj: \";\"Piso\nEj: \";\"Departamento\nEj: \";\"Provincia / Localidad / CP * \nEj: BUENOS AIRES / 11 DE SEPTIEMBRE / 1657\";\"Observaciones\nEj: \"";
+// Column index (0-based) of every field in the Andreani row — used to mark
+// phone/postal columns as text in the .xlsx so leading zeros aren't stripped.
+const ANDREANI_HEADERS = [
+  "Paquete Guardado \nEj: Parlante Speaker",
+  "Peso (grs)\nEj: ",
+  "Alto (cm)\nEj: ",
+  "Ancho (cm)\nEj: ",
+  "Profundidad (cm)\nEj: ",
+  "Valor declarado ($ C/IVA) *\nEj: ",
+  "Numero Interno\nEj: ",
+  "Nombre *\nEj: ",
+  "Apellido *\nEj: ",
+  "DNI *\nEj: ",
+  "Email *\nEj: ",
+  "Celular código *\nEj: ",
+  "Celular número *\nEj: ",
+  "Calle *\nEj: ",
+  "Número *\nEj: ",
+  "Piso\nEj: ",
+  "Departamento\nEj: ",
+  "Provincia / Localidad / CP * \nEj: BUENOS AIRES / 11 DE SEPTIEMBRE / 1657",
+  "Observaciones\nEj: ",
+];
+const ANDREANI_GROUP_ROW = [
+  "Características", "", "", "", "", "", "",
+  "Destinatario", "", "", "", "", "",
+  "Domicilio destino", "", "", "", "", "",
+];
+// Columns that must stay text in the xlsx (leading zeros, no scientific notation)
+const ANDREANI_TEXT_COLUMNS = [6, 9, 11, 12, 17]; // Numero Interno, DNI, Celular código/número, Provincia/Localidad/CP
 
-  const rows = orders.map((o) => {
+function andreaniRows(orders: NormalizedOrder[]): (string | number)[][] {
+  return orders.map((o) => {
     const { area, num } = splitPhone(o.phone || "");
     const { firstName, lastName } = splitName(o.customerName || "");
     return [
@@ -199,48 +234,64 @@ export function generateAndreaniHomeCSV(orders: NormalizedOrder[]): ExportFile {
       "" // Observaciones
     ];
   });
+}
 
+function generateAndreaniCSV(orders: NormalizedOrder[], filenamePrefix: string): ExportFile {
+  const template = csvRow(ANDREANI_GROUP_ROW) + "\r\n" + csvRow(ANDREANI_HEADERS);
   const dateTag = new Date().toISOString().slice(0, 10);
   return {
-    filename: `andreani_domicilio_${dateTag}.csv`,
-    content: template + "\r\n" + rows.map(csvRow).join("\r\n"),
+    filename: `${filenamePrefix}_${dateTag}.csv`,
+    content: template + "\r\n" + andreaniRows(orders).map(csvRow).join("\r\n"),
   };
 }
 
-export function generateAndreaniBranchCSV(orders: NormalizedOrder[]): ExportFile {
-  const template = "Características;;;;;;;Destinatario;;;;;;Domicilio destino;;;;;\r\n\"Paquete Guardado \nEj: Parlante Speaker\";\"Peso (grs)\nEj: \";\"Alto (cm)\nEj: \";\"Ancho (cm)\nEj: \";\"Profundidad (cm)\nEj: \";\"Valor declarado ($ C/IVA) *\nEj: \";\"Numero Interno\nEj: \";\"Nombre *\nEj: \";\"Apellido *\nEj: \";\"DNI *\nEj: \";\"Email *\nEj: \";\"Celular código *\nEj: \";\"Celular número *\nEj: \";\"Calle *\nEj: \";\"Número *\nEj: \";\"Piso\nEj: \";\"Departamento\nEj: \";\"Provincia / Localidad / CP * \nEj: BUENOS AIRES / 11 DE SEPTIEMBRE / 1657\";\"Observaciones\nEj: \"";
+function generateAndreaniXLSX(orders: NormalizedOrder[], filenamePrefix: string): ExportFile {
+  const rows = andreaniRows(orders);
+  const aoa: (string | number)[][] = [ANDREANI_GROUP_ROW, ANDREANI_HEADERS, ...rows];
 
-  const rows = orders.map((o) => {
-    const { area, num } = splitPhone(o.phone || "");
-    const { firstName, lastName } = splitName(o.customerName || "");
-    return [
-      "Paquete", // Paquete Guardado
-      Math.round(o.weightKg * 1000) || 1000, // Peso (grs)
-      o.heightCm || 10, // Alto (cm)
-      o.widthCm || 10,  // Ancho (cm)
-      o.lengthCm || 10, // Profundidad (cm)
-      o.declaredValue.toFixed(2), // Valor declarado
-      o.orderNumber || "", // Numero Interno
-      firstName, // Nombre
-      lastName, // Apellido
-      o.dni || "", // DNI
-      o.email || "", // Email
-      area, // Celular codigo
-      num, // Celular numero
-      o.street || "", // Calle
-      o.streetNumber || "", // Número
-      o.floor || "", // Piso
-      o.apartment || "", // Departamento
-      `${o.province || ""} / ${o.city || ""} / ${o.postalCode || ""}`, // Provincia / Localidad / CP
-      "" // Observaciones
-    ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const headerRowCount = 2; // group row + header row
+
+  // Force text-only columns (postal code, phone, DNI, internal order number) to
+  // stay as strings so Excel/Andreani doesn't strip leading zeros or reformat them.
+  rows.forEach((_, rIdx) => {
+    ANDREANI_TEXT_COLUMNS.forEach((cIdx) => {
+      const ref  = XLSX.utils.encode_cell({ r: headerRowCount + rIdx, c: cIdx });
+      const cell = ws[ref];
+      if (cell) {
+        cell.t = "s";
+        cell.v = String(cell.v);
+      }
+    });
   });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+  const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" }) as string;
 
   const dateTag = new Date().toISOString().slice(0, 10);
   return {
-    filename: `andreani_sucursal_${dateTag}.csv`,
-    content: template + "\r\n" + rows.map(csvRow).join("\r\n"),
+    filename: `${filenamePrefix}_${dateTag}.xlsx`,
+    content:  base64,
+    encoding: "base64",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   };
+}
+
+export function generateAndreaniHomeCSV(orders: NormalizedOrder[]): ExportFile {
+  return generateAndreaniCSV(orders, "andreani_domicilio");
+}
+
+export function generateAndreaniBranchCSV(orders: NormalizedOrder[]): ExportFile {
+  return generateAndreaniCSV(orders, "andreani_sucursal");
+}
+
+export function generateAndreaniHomeXLSX(orders: NormalizedOrder[]): ExportFile {
+  return generateAndreaniXLSX(orders, "andreani_domicilio");
+}
+
+export function generateAndreaniBranchXLSX(orders: NormalizedOrder[]): ExportFile {
+  return generateAndreaniXLSX(orders, "andreani_sucursal");
 }
 
 // ── Correo Argentino (máx 40 por archivo) ────────────────────────────────────

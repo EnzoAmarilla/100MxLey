@@ -71,7 +71,7 @@ async function buildLabel(
   // ── HEADER ───────────────────────────────────────────────────────
   label(page, truncate(storeName, 28), M, y - 14, fontBold, 13, BLACK);
 
-  const numStr = `#${order.externalId}`;
+  const numStr = `#${order.orderNumber ?? order.externalId}`;
   const numW   = fontBold.widthOfTextAtSize(numStr, 10);
   label(page, numStr, A6W - M - numW, y - 14, fontBold, 10, GRAY);
 

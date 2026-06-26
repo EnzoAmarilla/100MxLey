@@ -32,6 +32,7 @@ export async function GET(req: Request) {
       select: {
         id:               true,
         externalId:       true,
+        orderNumber:      true,
         buyerName:        true,
         status:           true,
         operationalStatus: true,
@@ -61,6 +62,7 @@ export async function GET(req: Request) {
     orders: orders.map((o) => ({
       id:               o.id,
       externalId:       o.externalId,
+      orderNumber:      o.orderNumber,
       buyerName:        o.buyerName,
       status:           o.status,
       operationalStatus: o.operationalStatus,

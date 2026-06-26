@@ -20,6 +20,7 @@ type AndreaniType = "domicilio" | "sucursal" | "";
 interface Order {
   id:                 string;
   externalId:         string;
+  orderNumber?:       number | null;
   buyerName:          string;
   buyerEmail:         string;
   address:            any;
@@ -94,12 +95,21 @@ function matchesProvider(
   return true;
 }
 
-function downloadCSV(filename: string, content: string) {
-  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+function downloadFile(file: { filename: string; content: string; encoding?: string; mimeType?: string }) {
+  const blob = file.encoding === "base64"
+    ? base64ToBlob(file.content, file.mimeType || "application/octet-stream")
+    : new Blob(["﻿" + file.content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
   a.href     = url;
-  a.download = filename;
+  a.download = file.filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -293,7 +303,7 @@ export default function LogisticsExportPage() {
 
   // ── Export ────────────────────────────────────────────────────────────────
 
-  const handleExport = async () => {
+  const handleExport = async (format: "xlsx" | "csv") => {
     if (!selected.size || !provider) return;
     setExporting(true);
     setExportMsg(null);
@@ -306,6 +316,7 @@ export default function LogisticsExportPage() {
           orderIds:    Array.from(selected),
           provider,
           shippingType: provider === "andreani" ? andreaniType : null,
+          format,
         }),
       });
       const data = await res.json();
@@ -319,9 +330,9 @@ export default function LogisticsExportPage() {
         return;
       }
 
-      const files: { filename: string; content: string }[] = data.files ?? [];
+      const files: { filename: string; content: string; encoding?: string; mimeType?: string }[] = data.files ?? [];
       files.forEach((file, i) => {
-        setTimeout(() => downloadCSV(file.filename, file.content), i * 400);
+        setTimeout(() => downloadFile(file), i * 400);
       });
 
       const label = provider === "andreani"
@@ -432,7 +443,7 @@ export default function LogisticsExportPage() {
           Exportación Logística
         </h1>
         <p className="text-[var(--text-secondary)] mt-1">
-          Generá archivos CSV listos para carga masiva en Andreani o Correo Argentino.
+          Generá archivos listos para carga masiva: .xlsx para Andreani, CSV para Correo Argentino.
         </p>
       </div>
 
@@ -640,7 +651,7 @@ export default function LogisticsExportPage() {
                           : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs">#{order.externalId}</td>
+                    <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs">#{order.orderNumber ?? order.externalId}</td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">{fmtDate(order.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-[var(--text-primary)] text-sm">{order.buyerName}</div>
@@ -780,14 +791,26 @@ export default function LogisticsExportPage() {
           </Button>
 
           <Button
-            onClick={handleExport}
+            onClick={() => handleExport("xlsx")}
             disabled={!canExport || exporting}
             className="gap-2"
           >
             {exporting
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Exportando...</>
-              : <><FileDown className="h-4 w-4" /> Exportar CSV</>}
+              : <><FileDown className="h-4 w-4" /> Exportar {provider === "andreani" ? "XLSX" : "CSV"}</>}
           </Button>
+
+          {provider === "andreani" && (
+            <Button
+              onClick={() => handleExport("csv")}
+              disabled={!canExport || exporting}
+              variant="secondary"
+              className="gap-2"
+              title="Formato alternativo — Andreani requiere .xlsx para importar sin errores"
+            >
+              <FileDown className="h-4 w-4" /> Exportar CSV (alternativo)
+            </Button>
+          )}
         </div>
 
         {/* Validation: passed */}

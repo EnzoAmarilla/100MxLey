@@ -18,6 +18,7 @@ interface StatusHistory {
 interface OrderDetail {
   id:               string;
   externalId:       string;
+  orderNumber?:     number | null;
   buyerName:        string;
   buyerEmail:       string;
   address:          string;
@@ -117,7 +118,7 @@ export default function AdminOrderDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-white">Pedido #{order.externalId}</h1>
+          <h1 className="text-xl font-bold text-white">Pedido #{order.orderNumber ?? order.externalId}</h1>
           <p className="text-xs text-zinc-400">Cliente: {order.clientName}</p>
         </div>
         {currentSt && (

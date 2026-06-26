@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     prisma.orderStatusHistory.findMany({
       where: { order: { userId: clientId } },
       include: {
-        order:     { select: { externalId: true } },
+        order:     { select: { externalId: true, orderNumber: true } },
         changedBy: { select: { name: true } },
       },
       orderBy: { changedAt: "desc" },
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     entries: entries.map((e) => ({
       id:              e.id,
       orderId:         e.orderId,
-      orderExternalId: e.order.externalId,
+      orderExternalId: e.order.orderNumber ?? e.order.externalId,
       oldStatus:       e.oldStatus,
       newStatus:       e.newStatus,
       internalNote:    e.internalNote,

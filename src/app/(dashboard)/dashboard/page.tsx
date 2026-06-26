@@ -111,15 +111,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const init = async () => {
-      // 1. Sincronizar pedidos en segundo plano, sin bloquear
-      fetch("/api/integrations/tiendanube/sync", { method: "POST" })
-        .then(() => {
-          if (mounted) fetchMetrics(period);
-        })
-        .catch((e) => console.error("Error auto-syncing:", e));
-
-      // 2. Cargar todas las métricas con la info ya procesada
-      await Promise.all([
+      // 2. Cargar todas las métricas con la info ya procesada sin bloquear la UI
+      Promise.all([
         fetchMetrics(period),
         fetch("/api/credits")
           .then((r) => r.json())
@@ -144,9 +137,22 @@ export default function DashboardPage() {
           .then((r) => r.json())
           .then((d) => setTnHasAnyOrders((d.total ?? 0) > 0))
           .catch(() => setTnHasAnyOrders(false)),
-        // Enforce a minimum display time of 1.8 seconds so the spinner is clearly visible
-        new Promise((resolve) => setTimeout(resolve, 1800))
-      ]);
+        // Auto-sync on entry: pulls any orders missed by the webhook (e.g. today's sales)
+        // without blocking the initial render — incremental, so it's cheap on repeat logins.
+        fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.success && data.count > 0) {
+              setTnHasAnyOrders(true);
+              setSyncMsg(`✓ ${data.count} pedidos sincronizados`);
+              fetchMetrics(period);
+            }
+          })
+          .catch(() => {}),
+      ]).catch(err => console.error("Background load error:", err));
+
+      // Enforce a minimum display time of 1.8 seconds so the spinner is clearly visible
+      await new Promise((resolve) => setTimeout(resolve, 1800));
       setInitialized(true);
     };
     init();
@@ -161,17 +167,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchMetrics(period);
-      fetch("/api/integrations/tiendanube/sync", { method: "POST" })
-        .then((res) => {
-          if (res.ok) {
-            fetchMetrics(period);
-          }
-        })
-        .catch(() => {});
+      if (tnConnected) {
+        fetch("/api/integrations/tiendanube/sync", { method: "POST" })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.success && data.count > 0) setSyncMsg(`✓ ${data.count} pedidos sincronizados`);
+          })
+          .catch(() => {})
+          .finally(() => fetchMetrics(period));
+      } else {
+        fetchMetrics(period);
+      }
     }, 90 * 1000);
     return () => clearInterval(interval);
-  }, [fetchMetrics, period]);
+  }, [fetchMetrics, period, tnConnected]);
 
   const handleSync = async () => {
     setSyncing(true);

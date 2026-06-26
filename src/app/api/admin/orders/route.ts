@@ -53,6 +53,7 @@ export async function GET(req: Request) {
       return {
         id:                 o.id,
         externalId:         o.externalId,
+        orderNumber:        o.orderNumber,
         buyerName:          o.buyerName,
         buyerEmail:         o.buyerEmail,
         address:            o.address,

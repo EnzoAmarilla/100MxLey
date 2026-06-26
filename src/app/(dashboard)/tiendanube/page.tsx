@@ -85,8 +85,12 @@ export default function TiendanubePage() {
   const [netRevenue, setNetRevenue]       = useState(0);
 
   const [status, setStatus]     = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo]     = useState("");
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayStr = fmt(new Date());
+
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo]     = useState(todayStr);
   const [courier, setCourier]   = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
@@ -132,9 +136,6 @@ export default function TiendanubePage() {
 
   useEffect(() => {
     setInitialSyncDone(true);
-    fetch("/api/integrations/tiendanube/sync", { method: "POST" })
-      .then(() => fetchOrders(0))
-      .catch((e) => console.error("Auto-sync error:", e));
   }, []);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import { NoClientSelected } from "@/components/admin/no-client-selected";
 interface AdminOrder {
   id:               string;
   externalId:       string;
+  orderNumber?:     number | null;
   buyerName:        string;
   buyerEmail:       string;
   status:           string;
@@ -203,7 +204,7 @@ export default function AdminOrdersPage() {
                       <p className="text-zinc-500 text-xs truncate max-w-[120px]">{order.clientEmail}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-amber-400 text-xs">#{order.externalId}</span>
+                      <span className="font-mono text-amber-400 text-xs">#{order.orderNumber ?? order.externalId}</span>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-zinc-300 text-xs">{order.buyerName}</p>

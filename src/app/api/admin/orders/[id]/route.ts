@@ -23,6 +23,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json({
     id:               order.id,
     externalId:       order.externalId,
+    orderNumber:      order.orderNumber,
     buyerName:        order.buyerName,
     buyerEmail:       order.buyerEmail,
     address:          order.address,

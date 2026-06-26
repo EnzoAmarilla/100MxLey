@@ -110,6 +110,7 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
           update: {
             userId,
             status,
+            orderNumber:  Number(tnOrder.number) || null,
             buyerName:    tnOrder.customer?.name  || "Sin nombre",
             buyerEmail:   tnOrder.customer?.email || "",
             address:      JSON.stringify(address),
@@ -125,6 +126,7 @@ export async function syncTiendanubeOrders(store: Store, userId: string): Promis
             storeId:      store.id,
             userId,
             externalId:   String(tnOrder.id),
+            orderNumber:  Number(tnOrder.number) || null,
             buyerName:    tnOrder.customer?.name  || "Sin nombre",
             buyerEmail:   tnOrder.customer?.email || "",
             address:      JSON.stringify(address),

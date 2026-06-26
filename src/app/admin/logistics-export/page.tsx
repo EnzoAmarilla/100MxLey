@@ -18,6 +18,7 @@ type AndreaniType = "domicilio" | "sucursal";
 interface Order {
   id:                 string;
   externalId:         string;
+  orderNumber?:       number | null;
   buyerName:          string;
   buyerEmail:         string;
   address:            any;
@@ -68,12 +69,21 @@ function matchesProvider(
   return true;
 }
 
-function downloadCSV(filename: string, content: string) {
-  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+function downloadFile(file: { filename: string; content: string; encoding?: string; mimeType?: string }) {
+  const blob = file.encoding === "base64"
+    ? base64ToBlob(file.content, file.mimeType || "application/octet-stream")
+    : new Blob(["﻿" + file.content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
   a.href     = url;
-  a.download = filename;
+  a.download = file.filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -180,7 +190,7 @@ export default function AdminLogisticsExportPage() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: "xlsx" | "csv") => {
     if (!selected.size || !provider || !activeClient) return;
     setExporting(true);
     setExportMsg(null);
@@ -196,6 +206,7 @@ export default function AdminLogisticsExportPage() {
           shippingType: provider === "andreani" ? andreaniType : null,
           branchCode,
           branchName,
+          format,
         }),
       });
       const data = await res.json();
@@ -206,8 +217,8 @@ export default function AdminLogisticsExportPage() {
         return;
       }
 
-      const files: { filename: string; content: string }[] = data.files ?? [];
-      files.forEach((file, i) => setTimeout(() => downloadCSV(file.filename, file.content), i * 400));
+      const files: { filename: string; content: string; encoding?: string; mimeType?: string }[] = data.files ?? [];
+      files.forEach((file, i) => setTimeout(() => downloadFile(file), i * 400));
 
       const label = provider === "andreani" ? `Andreani (${andreaniType})` : "Correo Argentino";
       setExportMsg({ ok: true, text: `${data.exportedCount} pedidos exportados para ${label}.${files.length > 1 ? ` ${files.length} archivos.` : ""}` });
@@ -407,7 +418,7 @@ export default function AdminLogisticsExportPage() {
                           : <Square className="h-4 w-4 text-[var(--text-secondary)]" />}
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs">#{order.externalId}</td>
+                    <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs">#{order.orderNumber ?? order.externalId}</td>
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">{fmtDate(order.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-[var(--text-primary)] text-sm">{order.buyerName}</div>
@@ -475,9 +486,15 @@ export default function AdminLogisticsExportPage() {
           <Button onClick={handleValidate} disabled={!canValidate || validating} variant="secondary" className="gap-2">
             {validating ? <><Loader2 className="h-4 w-4 animate-spin" /> Validando...</> : <><ShieldAlert className="h-4 w-4" /> Validar</>}
           </Button>
-          <Button onClick={handleExport} disabled={!canExport || exporting} className="gap-2">
-            {exporting ? <><Loader2 className="h-4 w-4 animate-spin" /> Exportando...</> : <><FileDown className="h-4 w-4" /> Exportar CSV</>}
+          <Button onClick={() => handleExport("xlsx")} disabled={!canExport || exporting} className="gap-2">
+            {exporting ? <><Loader2 className="h-4 w-4 animate-spin" /> Exportando...</> : <><FileDown className="h-4 w-4" /> Exportar {provider === "andreani" ? "XLSX" : "CSV"}</>}
           </Button>
+          {provider === "andreani" && (
+            <Button onClick={() => handleExport("csv")} disabled={!canExport || exporting} variant="secondary" className="gap-2"
+              title="Formato alternativo — Andreani requiere .xlsx para importar sin errores">
+              <FileDown className="h-4 w-4" /> Exportar CSV (alternativo)
+            </Button>
+          )}
         </div>
 
         {validationPassed && validationErrors !== null && (

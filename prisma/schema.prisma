@@ -13,6 +13,7 @@ model order {
   storeId             String?
   userId              String
   externalId          String
+  orderNumber         Int?
   buyerName           String
   buyerEmail          String
   address             String               @db.LongText
@@ -39,6 +40,9 @@ model order {
   @@index([userId], map: "Order_userId_fkey")
   @@index([lastUpdatedById], map: "Order_lastUpdatedById_fkey")
   @@index([operationalStatus], map: "Order_operationalStatus_idx")
+  @@index([createdAt], map: "Order_createdAt_idx")
+  @@index([status], map: "Order_status_idx")
+  @@index([userId, createdAt], map: "Order_userId_createdAt_idx")
 }
 
 model store {

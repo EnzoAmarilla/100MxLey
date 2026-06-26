@@ -8,7 +8,7 @@ import { useAdminClient } from "@/contexts/admin-client";
 import { NoClientSelected } from "@/components/admin/no-client-selected";
 
 interface Incident {
-  id: string; externalId: string; buyerName: string; buyerEmail: string;
+  id: string; externalId: string; orderNumber?: number | null; buyerName: string; buyerEmail: string;
   totalAmount: number; createdAt: string; clientNote: string | null;
   lastUpdatedBy: string | null;
 }
@@ -72,7 +72,7 @@ export default function AdminIncidentsPage() {
               {items.map((inc) => (
                 <tr key={inc.id} className="hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3.5">
-                    <span className="font-mono text-amber-400 text-xs">#{inc.externalId}</span>
+                    <span className="font-mono text-amber-400 text-xs">#{inc.orderNumber ?? inc.externalId}</span>
                   </td>
                   <td className="px-4 py-3.5">
                     <p className="text-xs text-zinc-300">{inc.buyerName}</p>

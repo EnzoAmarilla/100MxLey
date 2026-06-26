@@ -16,6 +16,7 @@ interface StatusHistory {
 interface ClientOrder {
   id:               string;
   externalId:       string;
+  orderNumber?:     number | null;
   buyerName:        string;
   status:           string;
   operationalStatus: string | null;
@@ -171,7 +172,7 @@ export default function LogisticsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
-                        #{order.externalId}
+                        #{order.orderNumber ?? order.externalId}
                       </span>
                       {st && (
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[st]}`}>

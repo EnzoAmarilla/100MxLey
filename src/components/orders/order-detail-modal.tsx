@@ -35,7 +35,7 @@ export function OrderDetailModal({ order, isOpen, onClose }: OrderDetailModalPro
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Detalle del Pedido #${order.externalId}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`Detalle del Pedido #${order.orderNumber ?? order.externalId}`}>
       <div className="space-y-8">
         {/* Header Info */}
         <div className="grid grid-cols-2 gap-4">

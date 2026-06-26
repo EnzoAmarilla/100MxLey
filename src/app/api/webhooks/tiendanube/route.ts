@@ -54,14 +54,17 @@ export async function POST(req: Request) {
       update: {
         userId: store.userId,
         status: orderData.status || "paid",
+        orderNumber: Number(orderData.number) || null,
         totalAmount: parseFloat(orderData.total) || 0,
         products: JSON.stringify(products),
+        rawPayload: orderData,
       },
       create: {
         id: randomUUID(),
         storeId: store.id,
         userId: store.userId,
         externalId: String(orderData.id),
+        orderNumber: Number(orderData.number) || null,
         buyerName: orderData.customer?.name || "Sin nombre",
         buyerEmail: orderData.customer?.email || "",
         address: JSON.stringify({
@@ -75,6 +78,7 @@ export async function POST(req: Request) {
         courier: (typeof orderData.shipping_option === "string" ? orderData.shipping_option : orderData.shipping_option?.name) || null,
         status: orderData.status || "paid",
         totalAmount: parseFloat(orderData.total) || 0,
+        rawPayload: orderData,
       },
     });
 

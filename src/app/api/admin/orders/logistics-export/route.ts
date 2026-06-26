@@ -8,11 +8,14 @@ import {
   validateOrderForExport,
   generateAndreaniHomeCSV,
   generateAndreaniBranchCSV,
+  generateAndreaniHomeXLSX,
+  generateAndreaniBranchXLSX,
   generateCorreoArgentinoCSV,
   type LogisticsProvider,
   type AndreaniType,
   type NormalizedOrder,
   type ValidationError,
+  type ExportFormat,
 } from "@/lib/logistics-export";
 
 export async function POST(req: Request) {
@@ -29,6 +32,7 @@ export async function POST(req: Request) {
       branchCode = "",
       branchName = "",
       validateOnly = false,
+      format = "xlsx",
     } = body as {
       orderIds:     string[];
       clientId:     string;
@@ -37,6 +41,7 @@ export async function POST(req: Request) {
       branchCode?:  string;
       branchName?:  string;
       validateOnly?: boolean;
+      format?:      ExportFormat;
     };
 
     if (!clientId)
@@ -82,13 +87,14 @@ export async function POST(req: Request) {
       }, { status: 422 });
     }
 
-    let files: { filename: string; content: string }[];
+    let files: { filename: string; content: string; encoding?: string; mimeType?: string }[];
 
     if (provider === "andreani") {
+      const isHome = shippingType === "domicilio";
       files = [
-        shippingType === "domicilio"
-          ? generateAndreaniHomeCSV(normalized)
-          : generateAndreaniBranchCSV(normalized),
+        format === "csv"
+          ? (isHome ? generateAndreaniHomeCSV(normalized) : generateAndreaniBranchCSV(normalized))
+          : (isHome ? generateAndreaniHomeXLSX(normalized) : generateAndreaniBranchXLSX(normalized)),
       ];
     } else {
       files = generateCorreoArgentinoCSV(normalized);

@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       take:    10,
       include: {
         changedBy: { select: { name: true } },
-        order:     { select: { externalId: true } },
+        order:     { select: { externalId: true, orderNumber: true } },
       },
     }),
   ]);
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     recentActivity: recentActivity.map((h) => ({
       id:              h.id,
       orderId:         h.orderId,
-      orderExternalId: h.order.externalId,
+      orderExternalId: h.order.orderNumber ?? h.order.externalId,
       newStatus:       h.newStatus,
       changedAt:       h.changedAt,
       changedBy:       h.changedBy?.name ?? null,

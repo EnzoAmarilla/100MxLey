@@ -288,7 +288,7 @@ export default function StockPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
             <Package className="h-7 w-7 text-neon-cyan" />
@@ -296,7 +296,7 @@ export default function StockPage() {
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-1 tracking-widest uppercase">Inventario · Indumentaria Mxley</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="ghost"
             size="sm"

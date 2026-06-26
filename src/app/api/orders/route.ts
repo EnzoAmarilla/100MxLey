@@ -33,16 +33,15 @@ export async function GET(req: Request) {
     if (dateTo)   where.createdAt.lte = new Date(dateTo   + "T23:59:59-03:00");
   }
 
-  // Count + fetch + status breakdown + total revenue in parallel
-  const [total, orders, statusGroups, revenueAgg] = await Promise.all([
-    prisma.order.count({ where }),
+  // Fetch + status breakdown + total/revenue aggregate in parallel (3 round-trips instead of 4)
+  const [orders, statusGroups, agg] = await Promise.all([
     prisma.order.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take:   PAGE_SIZE,
       skip:   page * PAGE_SIZE,
       select: {
-        id: true, externalId: true, buyerName: true, buyerEmail: true,
+        id: true, externalId: true, orderNumber: true, buyerName: true, buyerEmail: true,
         address: true, products: true, courier: true, trackingCode: true,
         status: true, exported: true, notified: true,
         totalAmount: true, shippingCost: true, createdAt: true, rawPayload: true,
@@ -50,8 +49,10 @@ export async function GET(req: Request) {
       },
     }),
     prisma.order.groupBy({ by: ["status"], where, _count: { status: true } }),
-    prisma.order.aggregate({ where, _sum: { totalAmount: true, shippingCost: true } }),
+    prisma.order.aggregate({ where, _count: { _all: true }, _sum: { totalAmount: true, shippingCost: true } }),
   ]);
+
+  const total = agg._count._all;
 
   const statusCounts = statusGroups.reduce<Record<string, number>>((acc, g) => {
     acc[g.status] = g._count.status;
@@ -89,8 +90,8 @@ export async function GET(req: Request) {
     };
   });
 
-  const totalRevenue  = revenueAgg._sum.totalAmount  ?? 0;
-  const totalShipping = revenueAgg._sum.shippingCost  ?? 0;
+  const totalRevenue  = agg._sum.totalAmount  ?? 0;
+  const totalShipping = agg._sum.shippingCost  ?? 0;
 
   return NextResponse.json({
     orders: processedOrders, total, page, pageSize: PAGE_SIZE,

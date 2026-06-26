@@ -17,9 +17,13 @@ export default function ShopifyPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayStr = typeof window !== "undefined" ? fmt(new Date()) : "";
+
   const [status, setStatus] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
   const [courier, setCourier] = useState("");
 
   useEffect(() => {

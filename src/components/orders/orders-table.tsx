@@ -14,6 +14,7 @@ interface Product {
 interface Order {
   id: string;
   externalId: string;
+  orderNumber?: number | null;
   buyerName: string;
   buyerEmail: string;
   address: any;
@@ -174,7 +175,7 @@ export function OrdersTable({ orders, onExport, exporting }: OrdersTableProps) {
                     </td>
 
                     <td className="px-4 py-3 font-mono text-neon-cyan/90 text-xs whitespace-nowrap">
-                      #{order.externalId}
+                      #{order.orderNumber ?? order.externalId}
                     </td>
 
                     <td className="px-4 py-3 text-xs text-[var(--text-secondary)] whitespace-nowrap">
