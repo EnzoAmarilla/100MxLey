@@ -25,6 +25,20 @@ function loadTemplate(): XLSX.WorkBook {
   return XLSX.read(buf, { type: "buffer" });
 }
 
+// The template ships with sample rows already filled in (used to verify it
+// imports correctly in Andreani). Those must never leak into a real export.
+function clearSampleRows(wb: XLSX.WorkBook, sheetName: string) {
+  const ws  = wb.Sheets[sheetName];
+  const ref = ws["!ref"];
+  if (!ref) return;
+  const range = XLSX.utils.decode_range(ref);
+  for (let r = FIRST_DATA_ROW; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      delete ws[XLSX.utils.encode_cell({ r, c })];
+    }
+  }
+}
+
 function fillSheet(wb: XLSX.WorkBook, sheetName: string, rows: (string | number)[][], textColumns: number[]) {
   const ws = wb.Sheets[sheetName];
   rows.forEach((row, rIdx) => {
@@ -44,12 +58,17 @@ function fillSheet(wb: XLSX.WorkBook, sheetName: string, rows: (string | number)
 function generateAndreaniXLSX(orders: NormalizedOrder[], shippingType: AndreaniType, filenamePrefix: string): ExportFile {
   const wb = loadTemplate();
 
+  // The template ships with sample data in these 3 order sheets — wipe it
+  // before writing real rows. "Configuracion" (reference data) is left intact.
+  clearSampleRows(wb, "A domicilio");
+  clearSampleRows(wb, "A sucursal");
+  clearSampleRows(wb, "Llega hoy");
+
   if (shippingType === "domicilio") {
     fillSheet(wb, "A domicilio", orders.map(andreaniDomicilioRow), ANDREANI_DOMICILIO_TEXT_COLUMNS);
   } else {
     fillSheet(wb, "A sucursal", orders.map(andreaniSucursalRow), ANDREANI_SUCURSAL_TEXT_COLUMNS);
   }
-  // "Llega hoy" and "Configuracion" are left exactly as shipped in the template.
 
   const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" }) as string;
   const dateTag = new Date().toISOString().slice(0, 10);
