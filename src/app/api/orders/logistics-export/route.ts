@@ -9,8 +9,6 @@ import {
   validateOrderForExport,
   generateAndreaniHomeCSV,
   generateAndreaniBranchCSV,
-  generateAndreaniHomeXLSX,
-  generateAndreaniBranchXLSX,
   generateCorreoArgentinoCSV,
   type LogisticsProvider,
   type AndreaniType,
@@ -18,6 +16,7 @@ import {
   type ValidationError,
   type ExportFormat,
 } from "@/lib/logistics-export";
+import { generateAndreaniHomeXLSX, generateAndreaniBranchXLSX } from "@/lib/andreani-xlsx-export";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
