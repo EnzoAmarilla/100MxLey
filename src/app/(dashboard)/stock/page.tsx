@@ -22,6 +22,7 @@ import {
   Filter,
   ShoppingBag,
   ExternalLink,
+  Layers,
 } from "lucide-react";
 
 interface Product {
@@ -47,6 +48,16 @@ const emptyForm = {
   sku: "", name: "", category: "Camisetas",
   stock: "", minStock: "", costPrice: "", salePrice: "", promoPrice: "", soldMonth: "0",
 };
+
+interface VariantRow { id: string; label: string; sku: string; stock: string; skuTouched?: boolean; }
+
+function newVariantRow(): VariantRow {
+  return { id: Math.random().toString(36).slice(2), label: "", sku: "", stock: "" };
+}
+
+function slugify(s: string): string {
+  return s.toUpperCase().trim().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
 
 function formatARS(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1).replace(".", ",")}M`;
@@ -93,6 +104,9 @@ export default function StockPage() {
   const [form, setForm]                 = useState(emptyForm);
   const [formErrors, setFormErrors]     = useState<Partial<typeof emptyForm>>({});
   const [saving, setSaving]             = useState(false);
+
+  const [variants, setVariants]         = useState<VariantRow[]>([]);
+  const [variantErrors, setVariantErrors] = useState<Record<string, { label?: string; sku?: string; stock?: string }>>({});
 
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [deleting, setDeleting]           = useState(false);
@@ -172,6 +186,8 @@ export default function StockPage() {
     setEditingProduct(null);
     setForm(emptyForm);
     setFormErrors({});
+    setVariants([]);
+    setVariantErrors({});
     setShowModal(true);
   }
 
@@ -189,6 +205,8 @@ export default function StockPage() {
       soldMonth:  String(p.soldMonth),
     });
     setFormErrors({});
+    setVariants([]);
+    setVariantErrors({});
     setShowModal(true);
   }
 
@@ -197,59 +215,154 @@ export default function StockPage() {
     setEditingProduct(null);
     setForm(emptyForm);
     setFormErrors({});
+    setVariants([]);
+    setVariantErrors({});
+  }
+
+  // ── Variant rows (only used when creating a new product) ───────────
+  function addVariantRow() {
+    setVariants((v) => [...v, newVariantRow()]);
+  }
+
+  function removeVariantRow(id: string) {
+    setVariants((v) => v.filter((r) => r.id !== id));
+  }
+
+  function updateVariantRow(id: string, patch: Partial<VariantRow>) {
+    setVariants((v) => v.map((r) => {
+      if (r.id !== id) return r;
+      const next = { ...r, ...patch };
+      if (patch.sku !== undefined) {
+        // User is typing the SKU directly — stop auto-generating it from the label.
+        next.skuTouched = true;
+      } else if (patch.label !== undefined && !r.skuTouched) {
+        next.sku = [form.sku, slugify(patch.label)].filter(Boolean).join("-");
+      }
+      return next;
+    }));
   }
 
   // ── Form validation ───────────────────────────────────────────────
   function validate() {
     const e: Partial<typeof emptyForm> = {};
-    if (!form.sku.trim())    e.sku       = "Requerido";
     if (!form.name.trim())   e.name      = "Requerido";
-    if (form.stock === "")   e.stock     = "Requerido";
     if (form.minStock === "") e.minStock = "Requerido";
     if (form.costPrice === "") e.costPrice = "Requerido";
     if (form.salePrice === "") e.salePrice = "Requerido";
-    // SKU uniqueness check (client-side, exclude current if editing)
-    const conflict = products.find(
-      (p) => p.sku === form.sku.toUpperCase().trim() && p.id !== editingProduct?.id
-    );
-    if (conflict) e.sku = "SKU ya existe";
+    // Editing always touches its own sku/stock; for a brand-new product
+    // they're only required when there are no variant rows replacing them.
+    if (editingProduct || variants.length === 0) {
+      if (!form.sku.trim()) e.sku   = "Requerido";
+      if (form.stock === "") e.stock = "Requerido";
+      const conflict = products.find(
+        (p) => p.sku === form.sku.toUpperCase().trim() && p.id !== editingProduct?.id
+      );
+      if (conflict) e.sku = "SKU ya existe";
+    }
     setFormErrors(e);
     return Object.keys(e).length === 0;
   }
 
-  async function handleSave() {
-    if (!validate()) return;
-    setSaving(true);
-    try {
+  function validateVariants(): boolean {
+    const errs: typeof variantErrors = {};
+    const seenSkus = new Set<string>();
+    for (const v of variants) {
+      const rowErr: { label?: string; sku?: string; stock?: string } = {};
+      if (!v.label.trim()) rowErr.label = "Requerido";
+      const skuNorm = v.sku.toUpperCase().trim();
+      if (!skuNorm) rowErr.sku = "Requerido";
+      else if (seenSkus.has(skuNorm) || products.some((p) => p.sku === skuNorm)) rowErr.sku = "SKU duplicado";
+      if (v.stock === "") rowErr.stock = "Requerido";
+      if (skuNorm) seenSkus.add(skuNorm);
+      if (Object.keys(rowErr).length) errs[v.id] = rowErr;
+    }
+    setVariantErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  // Creates one product per variant row, sharing category/prices from `form`.
+  // Returns false (and sets the row's error) on the first failure.
+  async function createVariantProducts(): Promise<boolean> {
+    for (const v of variants) {
       const payload = {
-        sku:        form.sku,
-        name:       form.name,
+        sku:        v.sku,
+        name:       `${form.name} - ${v.label}`,
         category:   form.category,
-        stock:      Number(form.stock),
+        stock:      Number(v.stock),
         minStock:   Number(form.minStock),
         costPrice:  Number(form.costPrice),
         salePrice:  Number(form.salePrice),
         promoPrice: form.promoPrice ? Number(form.promoPrice) : null,
-        soldMonth:  Number(form.soldMonth),
+        soldMonth:  0,
       };
-      let res: Response;
+      const res = await fetch("/api/stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setVariantErrors({ [v.id]: { sku: err.error || "Error al guardar" } });
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function handleSave() {
+    const baseValid    = validate();
+    const variantsValid = variants.length > 0 ? validateVariants() : true;
+    if (!baseValid || !variantsValid) return;
+
+    setSaving(true);
+    try {
       if (editingProduct) {
-        res = await fetch(`/api/stock/${editingProduct.id}`, {
+        const payload = {
+          sku:        form.sku,
+          name:       form.name,
+          category:   form.category,
+          stock:      Number(form.stock),
+          minStock:   Number(form.minStock),
+          costPrice:  Number(form.costPrice),
+          salePrice:  Number(form.salePrice),
+          promoPrice: form.promoPrice ? Number(form.promoPrice) : null,
+          soldMonth:  Number(form.soldMonth),
+        };
+        const res = await fetch(`/api/stock/${editingProduct.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        if (!res.ok) {
+          const err = await res.json();
+          setFormErrors({ sku: err.error || "Error al guardar" });
+          return;
+        }
+        if (variants.length > 0 && !(await createVariantProducts())) return;
+      } else if (variants.length > 0) {
+        if (!(await createVariantProducts())) return;
       } else {
-        res = await fetch("/api/stock", {
+        const payload = {
+          sku:        form.sku,
+          name:       form.name,
+          category:   form.category,
+          stock:      Number(form.stock),
+          minStock:   Number(form.minStock),
+          costPrice:  Number(form.costPrice),
+          salePrice:  Number(form.salePrice),
+          promoPrice: form.promoPrice ? Number(form.promoPrice) : null,
+          soldMonth:  Number(form.soldMonth),
+        };
+        const res = await fetch("/api/stock", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-      }
-      if (!res.ok) {
-        const err = await res.json();
-        setFormErrors({ sku: err.error || "Error al guardar" });
-        return;
+        if (!res.ok) {
+          const err = await res.json();
+          setFormErrors({ sku: err.error || "Error al guardar" });
+          return;
+        }
       }
       closeModal();
       fetchProducts();
@@ -577,7 +690,14 @@ export default function StockPage() {
 
             <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
-                <Field label="SKU" field="sku" placeholder="Ej: CAM-BLA-XL" form={form} setForm={setForm} formErrors={formErrors} />
+                <Field
+                  label={!editingProduct && variants.length > 0 ? "SKU base (prefijo de variantes)" : "SKU"}
+                  field="sku"
+                  placeholder="Ej: CAM-BLA-XL"
+                  form={form}
+                  setForm={setForm}
+                  formErrors={formErrors}
+                />
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">Categoría</label>
                   <select
@@ -592,8 +712,77 @@ export default function StockPage() {
 
               <Field label="Nombre del producto" field="name" placeholder="Ej: Camiseta blanca talle XL" form={form} setForm={setForm} formErrors={formErrors} />
 
+              <div className="space-y-3 rounded-lg border border-brand-border bg-brand-surface/30 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-3.5 w-3.5 text-neon-cyan" />
+                      <span className="text-xs font-medium tracking-wider uppercase text-[var(--text-secondary)]">
+                        Variantes (opcional)
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="sm" type="button" onClick={addVariantRow} className="h-7 gap-1.5 text-xs">
+                      <Plus className="h-3 w-3" /> Agregar variante
+                    </Button>
+                  </div>
+
+                  {variants.length === 0 ? (
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Sin variantes, este producto es un único SKU. Agregá variantes (ej. Talle S, M, L) si necesitás stock independiente para cada una.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {variants.map((v) => {
+                        const err = variantErrors[v.id];
+                        return (
+                          <div key={v.id} className="flex items-start gap-2">
+                            <div className="flex-1 space-y-1">
+                              <input
+                                type="text"
+                                placeholder="Variante (ej: Talle M)"
+                                value={v.label}
+                                onChange={(e) => updateVariantRow(v.id, { label: e.target.value })}
+                                className={`w-full rounded-lg border bg-brand-surface px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/40 focus:outline-none transition-all ${err?.label ? "border-neon-red/60" : "border-brand-border focus:border-neon-cyan/50"}`}
+                              />
+                              {err?.label && <p className="text-[10px] text-neon-red">{err.label}</p>}
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <input
+                                type="text"
+                                placeholder="SKU"
+                                value={v.sku}
+                                onChange={(e) => updateVariantRow(v.id, { sku: e.target.value })}
+                                className={`w-full rounded-lg border bg-brand-surface px-2.5 py-1.5 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/40 focus:outline-none transition-all ${err?.sku ? "border-neon-red/60" : "border-brand-border focus:border-neon-cyan/50"}`}
+                              />
+                              {err?.sku && <p className="text-[10px] text-neon-red">{err.sku}</p>}
+                            </div>
+                            <div className="w-20 space-y-1">
+                              <input
+                                type="number"
+                                placeholder="Stock"
+                                value={v.stock}
+                                onChange={(e) => updateVariantRow(v.id, { stock: e.target.value })}
+                                className={`w-full rounded-lg border bg-brand-surface px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/40 focus:outline-none transition-all ${err?.stock ? "border-neon-red/60" : "border-brand-border focus:border-neon-cyan/50"}`}
+                              />
+                              {err?.stock && <p className="text-[10px] text-neon-red">{err.stock}</p>}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeVariantRow(v.id)}
+                              className="mt-1.5 text-[var(--text-secondary)] hover:text-neon-red transition-colors"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Stock actual" field="stock" type="number" placeholder="0" form={form} setForm={setForm} formErrors={formErrors} />
+                {(editingProduct || variants.length === 0) && (
+                  <Field label="Stock actual" field="stock" type="number" placeholder="0" form={form} setForm={setForm} formErrors={formErrors} />
+                )}
                 <Field label="Stock mínimo" field="minStock" type="number" placeholder="5" form={form} setForm={setForm} formErrors={formErrors} />
               </div>
 

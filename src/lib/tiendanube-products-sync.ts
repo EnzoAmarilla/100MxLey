@@ -78,7 +78,10 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
       const variantLabel = (variant.values ?? []).map((v: any) => tnName(v)).filter(Boolean).join(" / ");
       const displayName  = variantLabel ? `${productName} - ${variantLabel}` : productName;
 
-      const stock      = variant.stock                    ?? 0;
+      // Stock is manual from here on: only used as the initial value when the
+      // product is first created. Later syncs never touch it again, so edits
+      // made by hand in the Stock panel are never overwritten.
+      const initialStock = variant.stock ?? 0;
       const salePrice  = parseFloat(variant.price            ?? "0") || 0;
       const costPrice  = parseFloat(variant.cost             ?? "0") || 0;
       const promoPrice = parseFloat(variant.promotional_price ?? "0") || null;
@@ -93,7 +96,6 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
             sku:        effectiveSku,
             name:       displayName,
             category,
-            stock,
             salePrice,
             promoPrice,
             costPrice,
@@ -109,7 +111,7 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
             sku:        effectiveSku,
             name:       displayName,
             category,
-            stock,
+            stock:      initialStock,
             minStock:   0,
             salePrice,
             promoPrice,
@@ -119,10 +121,11 @@ export async function syncTiendanubeProducts(store: Store, userId: string): Prom
         });
       } catch (e: any) {
         // SKU already exists as a manual product — link it to TN instead
+        // (without touching its existing manual stock value)
         if (e.code === "P2002") {
           await prisma.product.updateMany({
             where: { userId, sku: effectiveSku },
-            data: { storeId: store.id, externalId, platform: "tiendanube", stock, salePrice, promoPrice, costPrice, soldMonth },
+            data: { storeId: store.id, externalId, platform: "tiendanube", salePrice, promoPrice, costPrice, soldMonth },
           });
         } else {
           console.error("[TN_PRODUCTS_UPSERT_ERROR]", externalId, e?.message);
