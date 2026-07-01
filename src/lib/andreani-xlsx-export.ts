@@ -70,20 +70,83 @@ async function resolveSheetPath(zip: JSZip, sheetName: string): Promise<string> 
   const wbXml  = await zip.file("xl/workbook.xml")!.async("text");
   const relXml = await zip.file("xl/_rels/workbook.xml.rels")!.async("text");
 
-  // Extract rId for the requested sheet name
-  const sheetRe = new RegExp(`name="${sheetName}"[^>]*r:id="([^"]+)"`);
+  // Extract rId for the requested sheet name (handle both r:id and rId attribute order)
+  const sheetRe = new RegExp(`name="${sheetName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*(r:id|rId)="([^"]+)"`);
   const sheetM  = wbXml.match(sheetRe);
   if (!sheetM) throw new Error(`Sheet "${sheetName}" not found in workbook.xml`);
-  const rId = sheetM[1];
+  const rId = sheetM[2];
 
-  // Map rId → Target path
-  const relRe = new RegExp(`Id="${rId}"[^>]*Target="([^"]+)"`);
-  const relM  = relXml.match(relRe);
-  if (!relM) throw new Error(`Relationship "${rId}" not found in workbook.xml.rels`);
+  // Find the <Relationship> element that contains this Id, then extract Target
+  // The attributes can appear in any order, so we first isolate the element.
+  const elemRe = new RegExp(`<Relationship[^>]*Id="${rId}"[^>]*/?>`, "i");
+  const elemM  = relXml.match(elemRe);
+  if (!elemM) throw new Error(`Relationship "${rId}" not found in workbook.xml.rels`);
+  const targetM = elemM[0].match(/Target="([^"]+)"/);
+  if (!targetM) throw new Error(`No Target in relationship "${rId}"`);
 
   // Target paths may be absolute (/xl/worksheets/sheet1.xml) or relative
-  const target = relM[1].replace(/^\//, "");
-  return target;
+  return targetM[1].replace(/^\//, "");
+}
+
+// ── Configuracion sheet location lookup ──────────────────────────────────────
+// Reads the hidden "Configuracion" sheet in the Andreani template (which
+// contains all valid "PROVINCIA / LOCALIDAD / CP" dropdown values) and builds
+// a lookup from postal-code → list of matching strings. At row-build time we
+// pick the candidate whose province prefix matches the order data, giving an
+// exact match against Andreani's dropdown without any external API.
+
+async function buildLocationLookup(zip: JSZip): Promise<Map<string, string[]>> {
+  const lookup = new Map<string, string[]>();
+  try {
+    // 1. Parse shared strings — the template stores all strings there
+    const sharedStrings: string[] = [];
+    const ssFile = zip.file("xl/sharedStrings.xml");
+    if (ssFile) {
+      const ssXml = await ssFile.async("text");
+      const siRe  = /<(?:x:)?si\b[^>]*>([\s\S]*?)<\/(?:x:)?si>/g;
+      let si;
+      while ((si = siRe.exec(ssXml)) !== null) {
+        const texts: string[] = [];
+        const tRe  = /<(?:x:)?t[^>]*>([^<]*)<\/(?:x:)?t>/g;
+        let t;
+        while ((t = tRe.exec(si[1])) !== null) texts.push(t[1]);
+        sharedStrings.push(texts.join(""));
+      }
+    }
+
+    // 2. Read Configuracion sheet cells (shared-string type t="s")
+    const configPath = await resolveSheetPath(zip, "Configuracion");
+    const configXml  = await zip.file(configPath)!.async("text");
+    const cellRe = /<(?:x:)?c\b[^>]*\bt="s"[^>]*>\s*<(?:x:)?v>(\d+)<\/(?:x:)?v>/g;
+    let cm;
+    while ((cm = cellRe.exec(configXml)) !== null) {
+      const val = sharedStrings[parseInt(cm[1])];
+      if (!val) continue;
+      // Match strings like "BUENOS AIRES / ROSARIO / 2000"
+      const cpMatch = val.match(/^.+\s*\/\s*.+\s*\/\s*(\d+)\s*$/);
+      if (cpMatch) {
+        const postalCode = cpMatch[1].trim();
+        const list = lookup.get(postalCode) ?? [];
+        list.push(val.trim());
+        lookup.set(postalCode, list);
+      }
+    }
+  } catch {
+    // If the sheet can't be parsed, return empty map and fall back to formatted string
+  }
+  return lookup;
+}
+
+// Pick the best candidate from the lookup for a given order postal code + province.
+function resolveLocation(
+  lookup: Map<string, string[]>,
+  postalCode: string,
+  province: string,
+): string | undefined {
+  const candidates = lookup.get(postalCode);
+  if (!candidates?.length) return undefined;
+  const prov = province.toUpperCase().trim();
+  return candidates.find(c => c.startsWith(prov)) ?? candidates[0];
 }
 
 // ── Core injection ────────────────────────────────────────────────────────────
@@ -127,13 +190,24 @@ async function generateAndreaniXLSX(
     ? ANDREANI_DOMICILIO_TEXT_COLUMNS
     : ANDREANI_SUCURSAL_TEXT_COLUMNS;
 
-  const sheetPath = await resolveSheetPath(zip, targetSheet);
-  let sheetXml    = await zip.file(sheetPath)!.async("text");
+  const sheetPath      = await resolveSheetPath(zip, targetSheet);
+  let sheetXml         = await zip.file(sheetPath)!.async("text");
+
+  // For domicilio: build CP→string lookup from the Configuracion sheet so that
+  // Provincia/Localidad/CP matches Andreani's dropdown exactly.
+  const locationLookup = shippingType === "domicilio"
+    ? await buildLocationLookup(zip)
+    : new Map<string, string[]>();
 
   // Build one <x:row> per order (Excel row 3 onwards)
-  const rowXmls = orders.map((order, idx) =>
-    buildRowXml(3 + idx, rowFn(order), textCols),
-  );
+  const rowXmls = orders.map((order, idx) => {
+    const vals = rowFn(order);
+    if (shippingType === "domicilio" && order.postalCode) {
+      const matched = resolveLocation(locationLookup, order.postalCode, order.province);
+      if (matched) vals[17] = matched; // index 17 = Provincia / Localidad / CP
+    }
+    return buildRowXml(3 + idx, vals, textCols);
+  });
 
   sheetXml = injectRows(sheetXml, rowXmls);
 

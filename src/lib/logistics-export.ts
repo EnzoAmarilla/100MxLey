@@ -143,9 +143,6 @@ function csvRow(fields: unknown[]): string {
   return fields.map(escapeCSV).join(";");
 }
 
-function buildCSV(headers: string[], rows: unknown[][]): string {
-  return [csvRow(headers), ...rows.map(csvRow)].join("\r\n");
-}
 
 function parseDNI(identification: string): string {
   const cleaned = identification.replace(/[^\w]/g, "");
@@ -241,13 +238,21 @@ export const ANDREANI_SUCURSAL_TEXT_COLUMNS = [6, 9, 11, 12];
 export function andreaniDomicilioRow(o: NormalizedOrder): (string | number)[] {
   const { area, num } = splitPhone(o.phone || "");
   const { firstName, lastName } = splitName(o.customerName || "");
+  // Andreani rejects non-numeric street numbers (e.g. "SN" for "sin número")
+  const streetNum = (o.streetNumber || "").replace(/[^0-9]/g, "") || "0";
+  // Andreani validates Provincia/Localidad/CP against their dropdown — must be uppercase
+  const provinciaLocalidadCP = [
+    (o.province || "").toUpperCase(),
+    (o.city || "").toUpperCase(),
+    o.postalCode || "",
+  ].join(" / ");
   return [
     "", // Paquete Guardado — left blank, matches the working template
     Math.round(o.weightKg * 1000) || 1000, // Peso (grs)
     o.heightCm || 10, // Alto (cm)
     o.widthCm || 10,  // Ancho (cm)
     o.lengthCm || 10, // Profundidad (cm)
-    Math.round((o.declaredValue || 0) * 100) / 100, // Valor declarado
+    Math.round(o.declaredValue || 0), // Valor declarado — entero (Andreani rechaza decimales)
     o.orderNumber || "", // Numero Interno
     firstName, // Nombre
     lastName, // Apellido
@@ -256,10 +261,10 @@ export function andreaniDomicilioRow(o: NormalizedOrder): (string | number)[] {
     area, // Celular código
     num, // Celular número
     o.street || "", // Calle
-    o.streetNumber || "", // Número
+    streetNum, // Número (solo dígitos; "SN" → "0")
     o.floor || "", // Piso
     o.apartment || "", // Departamento
-    `${o.province || ""} / ${o.city || ""} / ${o.postalCode || ""}`, // Provincia / Localidad / CP
+    provinciaLocalidadCP, // Provincia / Localidad / CP (mayúsculas)
     "", // Observaciones
   ];
 }
@@ -273,7 +278,7 @@ export function andreaniSucursalRow(o: NormalizedOrder): (string | number)[] {
     o.heightCm || 10, // Alto (cm)
     o.widthCm || 10,  // Ancho (cm)
     o.lengthCm || 10, // Profundidad (cm)
-    Math.round((o.declaredValue || 0) * 100) / 100, // Valor declarado
+    Math.round(o.declaredValue || 0), // Valor declarado — entero (Andreani rechaza decimales)
     o.orderNumber || "", // Numero Interno
     firstName, // Nombre
     lastName, // Apellido
