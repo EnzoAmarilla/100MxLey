@@ -53,6 +53,19 @@ function fillSheet(wb: XLSX.WorkBook, sheetName: string, rows: (string | number)
       }
     });
   });
+
+  // Extend !ref to include the data rows we just wrote so they are included
+  // when XLSX serialises the workbook (the new template ships with no sample
+  // rows, so !ref would otherwise stop at the two header rows).
+  if (rows.length > 0) {
+    const existing = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : { s: { r: 0, c: 0 }, e: { r: 0, c: 0 } };
+    const lastDataRow = FIRST_DATA_ROW + rows.length - 1;
+    const lastDataCol = Math.max(...rows.map((r) => r.length - 1), existing.e.c);
+    ws["!ref"] = XLSX.utils.encode_range({
+      s: existing.s,
+      e: { r: Math.max(existing.e.r, lastDataRow), c: lastDataCol },
+    });
+  }
 }
 
 function generateAndreaniXLSX(orders: NormalizedOrder[], shippingType: AndreaniType, filenamePrefix: string): ExportFile {
