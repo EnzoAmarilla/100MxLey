@@ -15,6 +15,7 @@ import {
   Boxes,
   PackagePlus,
   FileDown,
+  ScanLine,
   Menu,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const navItems = [
   { label: "Clientes",            href: "/admin/clients",           icon: Users },
   { label: "Pedidos / Logística", href: "/admin/orders",            icon: Truck },
   { label: "Exportar a logística",href: "/admin/logistics-export",  icon: FileDown },
+  { label: "Preparación / Picking", href: "/admin/picking",         icon: ScanLine },
   { label: "Colectas",            href: "/admin/colectas",          icon: PackagePlus },
   { label: "Inventario",          href: "/admin/client-inventory",  icon: Boxes },
   { label: "Incidencias",         href: "/admin/incidents",         icon: ClipboardList },
