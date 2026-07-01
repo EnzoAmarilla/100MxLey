@@ -1,12 +1,14 @@
-// Generates the Andreani .xlsx import file from the real Andreani template
-// (src/lib/templates/andreani-template.xlsx). Server-only: relies on `fs`,
-// so this must never be imported from a "use client" components — only from
-// API routes. Keep CSV/types/normalization in @/lib/logistics-export, which
-// client pages do import.
+// Generates the Andreani .xlsx file by surgically injecting data rows into the
+// original template ZIP — every other file in the archive is kept byte-for-byte
+// identical to the template, so colours, borders, merged cells, column widths
+// and every other style property are preserved without needing style support
+// from any library.
+//
+// Server-only: uses `fs`. Never import from "use client" components.
 
 import fs from "fs";
 import path from "path";
-import * as XLSX from "xlsx";
+import JSZip from "jszip";
 import {
   andreaniDomicilioRow,
   andreaniSucursalRow,
@@ -18,85 +20,135 @@ import {
 } from "@/lib/logistics-export";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "src/lib/templates/andreani-template.xlsx");
-// Row 0 (0-based) = group header, Row 1 = column header, Row 2+ = data
-const FIRST_DATA_ROW = 2;
 
-function loadTemplate(): XLSX.WorkBook {
-  const buf = fs.readFileSync(TEMPLATE_PATH);
-  // cellStyles:true preserves colours, borders and merged cells from the template
-  return XLSX.read(buf, { type: "buffer", cellStyles: true });
-}
+// ── Excel helpers ─────────────────────────────────────────────────────────────
 
-// Remove any pre-existing sample rows from the target sheet (rows from
-// FIRST_DATA_ROW downwards). The two header rows are never touched.
-function clearSampleRows(wb: XLSX.WorkBook, sheetName: string) {
-  const ws  = wb.Sheets[sheetName];
-  const ref = ws["!ref"];
-  if (!ref) return;
-  const range = XLSX.utils.decode_range(ref);
-  for (let r = FIRST_DATA_ROW; r <= range.e.r; r++) {
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      delete ws[XLSX.utils.encode_cell({ r, c })];
-    }
+function colLetter(idx: number): string {
+  let s = "";
+  let n = idx + 1;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
   }
+  return s;
 }
 
-function fillSheet(
-  wb: XLSX.WorkBook,
-  sheetName: string,
-  rows: (string | number)[][],
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Build a single <x:row> XML string (1-based rowNum, 0-based column values).
+// Text columns are forced to inline strings; everything else follows the type.
+function buildRowXml(
+  rowNum: number,
+  values: (string | number)[],
   textColumns: number[],
-) {
-  const ws = wb.Sheets[sheetName];
-  rows.forEach((row, rIdx) => {
-    row.forEach((val, cIdx) => {
-      const addr = XLSX.utils.encode_cell({ r: FIRST_DATA_ROW + rIdx, c: cIdx });
-      if (textColumns.includes(cIdx)) {
-        ws[addr] = { t: "s", v: String(val ?? ""), z: "@" };
-      } else if (typeof val === "number") {
-        ws[addr] = { t: "n", v: val };
-      } else {
-        ws[addr] = { t: "s", v: String(val ?? "") };
-      }
-    });
+): string {
+  const cols = values.length;
+  const cells = values.map((val, cIdx) => {
+    const addr = `${colLetter(cIdx)}${rowNum}`;
+    if (textColumns.includes(cIdx) || typeof val === "string") {
+      // inline string — no need to touch sharedStrings.xml
+      const text = escapeXml(String(val ?? ""));
+      return `<x:c r="${addr}" t="inlineStr"><x:is><x:t>${text}</x:t></x:is></x:c>`;
+    }
+    // numeric
+    return `<x:c r="${addr}"><x:v>${val}</x:v></x:c>`;
   });
-
-  // Extend !ref so the written data rows are included when XLSX serialises
-  // the workbook (the new template ships with no sample rows, so !ref would
-  // otherwise stop at the two header rows).
-  if (rows.length > 0) {
-    const existing    = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : { s: { r: 0, c: 0 }, e: { r: 0, c: 0 } };
-    const lastDataRow = FIRST_DATA_ROW + rows.length - 1;
-    const lastDataCol = Math.max(...rows.map((r) => r.length - 1), existing.e.c);
-    ws["!ref"] = XLSX.utils.encode_range({
-      s: existing.s,
-      e: { r: Math.max(existing.e.r, lastDataRow), c: lastDataCol },
-    });
-  }
+  return `<x:row r="${rowNum}" spans="1:${cols}">${cells.join("")}</x:row>`;
 }
 
-function generateAndreaniXLSX(
+// ── Sheet name → file path resolver (reads workbook.xml + workbook.xml.rels) ──
+
+async function resolveSheetPath(zip: JSZip, sheetName: string): Promise<string> {
+  const wbXml  = await zip.file("xl/workbook.xml")!.async("text");
+  const relXml = await zip.file("xl/_rels/workbook.xml.rels")!.async("text");
+
+  // Extract rId for the requested sheet name
+  const sheetRe = new RegExp(`name="${sheetName}"[^>]*r:id="([^"]+)"`);
+  const sheetM  = wbXml.match(sheetRe);
+  if (!sheetM) throw new Error(`Sheet "${sheetName}" not found in workbook.xml`);
+  const rId = sheetM[1];
+
+  // Map rId → Target path
+  const relRe = new RegExp(`Id="${rId}"[^>]*Target="([^"]+)"`);
+  const relM  = relXml.match(relRe);
+  if (!relM) throw new Error(`Relationship "${rId}" not found in workbook.xml.rels`);
+
+  // Target paths may be absolute (/xl/worksheets/sheet1.xml) or relative
+  const target = relM[1].replace(/^\//, "");
+  return target;
+}
+
+// ── Core injection ────────────────────────────────────────────────────────────
+
+// Injects data rows into a sheet's XML string and updates <x:dimension>.
+// Data always starts at Excel row 3 (rows 1–2 are the two header rows).
+function injectRows(sheetXml: string, rowXmls: string[]): string {
+  if (rowXmls.length === 0) return sheetXml;
+
+  // Update <x:dimension ref="A1:Sn" />
+  const lastRow  = 2 + rowXmls.length; // 2 header rows + data rows
+  const dimRe    = /(<x:dimension ref=")([^"]+)(")/;
+  const dimMatch = sheetXml.match(dimRe);
+  if (dimMatch) {
+    const oldRef   = dimMatch[2];               // e.g. "A1:S2"
+    const colEnd   = oldRef.replace(/.*:([A-Z]+)\d+$/, "$1"); // "S"
+    const newRef   = `A1:${colEnd}${lastRow}`;
+    sheetXml = sheetXml.replace(dimRe, `$1${newRef}$3`);
+  }
+
+  // Inject rows before </x:sheetData>
+  const newRows = rowXmls.join("");
+  sheetXml = sheetXml.replace("</x:sheetData>", `${newRows}</x:sheetData>`);
+
+  return sheetXml;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+async function generateAndreaniXLSX(
   orders: NormalizedOrder[],
   shippingType: AndreaniType,
   filenamePrefix: string,
-): ExportFile {
-  const wb = loadTemplate();
+): Promise<ExportFile> {
+  const templateBuf = fs.readFileSync(TEMPLATE_PATH);
+  const zip = await JSZip.loadAsync(templateBuf);
 
-  // Wipe sample rows from all order sheets; leave "Configuracion" intact.
-  clearSampleRows(wb, "A domicilio");
-  clearSampleRows(wb, "A sucursal");
-  clearSampleRows(wb, "Llega hoy");
+  const targetSheet = shippingType === "domicilio" ? "A domicilio" : "A sucursal";
+  const rowFn       = shippingType === "domicilio" ? andreaniDomicilioRow : andreaniSucursalRow;
+  const textCols    = shippingType === "domicilio"
+    ? ANDREANI_DOMICILIO_TEXT_COLUMNS
+    : ANDREANI_SUCURSAL_TEXT_COLUMNS;
 
-  if (shippingType === "domicilio") {
-    fillSheet(wb, "A domicilio", orders.map(andreaniDomicilioRow), ANDREANI_DOMICILIO_TEXT_COLUMNS);
-  } else {
-    fillSheet(wb, "A sucursal", orders.map(andreaniSucursalRow), ANDREANI_SUCURSAL_TEXT_COLUMNS);
-  }
+  const sheetPath = await resolveSheetPath(zip, targetSheet);
+  let sheetXml    = await zip.file(sheetPath)!.async("text");
 
-  // cellStyles:true ensures all header colours, borders and merged cells are
-  // carried through to the output file.
-  const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx", cellStyles: true }) as string;
+  // Build one <x:row> per order (Excel row 3 onwards)
+  const rowXmls = orders.map((order, idx) =>
+    buildRowXml(3 + idx, rowFn(order), textCols),
+  );
+
+  sheetXml = injectRows(sheetXml, rowXmls);
+
+  // Write the modified sheet back into the zip — everything else untouched
+  zip.file(sheetPath, sheetXml);
+
+  const outBuf = await zip.generateAsync({
+    type:               "nodebuffer",
+    compression:        "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+
+  const base64  = outBuf.toString("base64");
   const dateTag = new Date().toISOString().slice(0, 10);
+
   return {
     filename: `${filenamePrefix}_${dateTag}.xlsx`,
     content:  base64,
@@ -105,10 +157,10 @@ function generateAndreaniXLSX(
   };
 }
 
-export function generateAndreaniHomeXLSX(orders: NormalizedOrder[]): ExportFile {
+export function generateAndreaniHomeXLSX(orders: NormalizedOrder[]): Promise<ExportFile> {
   return generateAndreaniXLSX(orders, "domicilio", "andreani_estandar_domicilio");
 }
 
-export function generateAndreaniBranchXLSX(orders: NormalizedOrder[]): ExportFile {
+export function generateAndreaniBranchXLSX(orders: NormalizedOrder[]): Promise<ExportFile> {
   return generateAndreaniXLSX(orders, "sucursal", "andreani_estandar_sucursal");
 }

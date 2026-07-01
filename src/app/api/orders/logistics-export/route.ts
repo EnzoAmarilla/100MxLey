@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       files = [
         format === "csv"
           ? (isHome ? generateAndreaniHomeCSV(normalized) : generateAndreaniBranchCSV(normalized))
-          : (isHome ? generateAndreaniHomeXLSX(normalized) : generateAndreaniBranchXLSX(normalized)),
+          : await (isHome ? generateAndreaniHomeXLSX(normalized) : generateAndreaniBranchXLSX(normalized)),
       ];
     } else {
       files = generateCorreoArgentinoCSV(normalized);
