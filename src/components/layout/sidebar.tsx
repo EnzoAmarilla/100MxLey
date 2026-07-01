@@ -21,6 +21,7 @@ import {
   Lock,
   FileDown,
   Tag,
+  ScanLine,
   Menu,
   X,
 } from "lucide-react";
@@ -79,8 +80,9 @@ const navItems = [
   { label: "Créditos",            href: "/credits",      icon: Coins,      logisticsGated: false },
   { label: "Pedidos / Logística", href: "/logistics",        icon: Truck,      logisticsGated: true },
   { label: "Exportar a logística",href: "/logistics-export",      icon: FileDown,   logisticsGated: true },
-  { label: "Etiquetas Andreani",  href: "/etiquetas-andreani",   icon: Tag,        logisticsGated: true },
-  { label: "Pedido de colecta",   href: "/colecta",              icon: PackagePlus, logisticsGated: true },
+  { label: "Etiquetas Andreani",    href: "/etiquetas-andreani", icon: Tag,      logisticsGated: true },
+  { label: "Preparación / Picking", href: "/picking",            icon: ScanLine, logisticsGated: true },
+  { label: "Pedido de colecta",     href: "/colecta",            icon: PackagePlus, logisticsGated: true },
   { label: "Mis colectas",        href: "/mis-colectas",     icon: ListChecks, logisticsGated: true },
   { label: "Ver tutorial",        href: "/tutorials",    icon: PlayCircle, logisticsGated: false },
 ];
